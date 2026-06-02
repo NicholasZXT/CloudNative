@@ -1,0 +1,5 @@
+# roles/wsl2-tuning/handlers/main.yml
+---
+- name: reload sysctl
+  ansible.builtin.command: sysctl --system
+  listen: "reload sysctl"

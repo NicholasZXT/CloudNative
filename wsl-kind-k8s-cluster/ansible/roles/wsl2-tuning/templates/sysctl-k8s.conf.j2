@@ -1,0 +1,5 @@
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# K8s BigData Lab - WSL2 Sysctl Tuning
+{% for key, value in sysctl_params.items() %}
+{{ key }} = {{ value }}
+{% endfor %}

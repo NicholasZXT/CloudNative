@@ -1,0 +1,45 @@
+---
+- name: 创建 Docker 配置目录
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    mode: '0755'
+
+- name: 部署 Docker daemon.json
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    mode: '0644'
+    validate: '/usr/bin/dockerd --config-file %s --validate'
+  notify: restart docker
+
+- name: 确保 Docker 服务已启动并设为开机自启
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+  # 兼容非 systemd WSL2 环境
+  ignore_errors: true
+  register: systemd_result
+
+- name: 非 systemd 环境下手动启动 Docker
+  ansible.builtin.shell: |
+    if ! pgrep -x dockerd > /dev/null; then
+      nohup dockerd > /var/log/dockerd.log 2>&1 &
+      sleep 3
+    fi
+  when: systemd_result is failed
+  changed_when: false
+
+- name: 验证 Docker 运行状态
+  ansible.builtin.command: docker info
+  changed_when: false
+  register: docker_info
+
+- name: 输出 Docker 存储驱动与镜像加速信息
+  ansible.builtin.debug:
+    msg:
+      - "Storage Driver: {{ docker_info.stdout | regex_search('Storage Driver: (.+)', '\\1') | first }}"
+      - "Registry Mirrors: {{ docker_info.stdout | regex_search('Registry Mirrors:[\\s\\S]*?(?=\\n[A-Z])', multiline=True) }}"

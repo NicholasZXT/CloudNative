@@ -1,0 +1,47 @@
+# ==========================================
+# WSL2 系统调优参数
+# ==========================================
+sysctl_params:
+  # K8s 网络必需：允许 iptables 查看桥接流量
+  net.bridge.bridge-nf-call-iptables: 1
+  net.bridge.bridge-nf-call-ip6tables: 1
+  # 启用 IPv4 转发 (Kind/CNI 强依赖)
+  net.ipv4.ip_forward: 1
+  # 优化虚拟内存，减少大数据组件 OOM 概率
+  vm.swappiness: 10
+  vm.max_map_count: 262144        # Elasticsearch 硬性要求
+  vm.overcommit_memory: 1         # 允许内存过量分配(Redis/Kafka推荐)
+  kernel.pid_max: 65536           # 容器密集场景需扩大 PID 上限
+
+file_limits:
+  soft_nofile: 65535
+  hard_nofile: 65535
+  soft_nproc: 65535
+  hard_nproc: 65535
+
+# ==========================================
+# Docker Engine 配置
+# ==========================================
+docker_daemon_config:
+  # 国内镜像加速 (按需替换为你可用的源)
+  registry-mirrors:
+    - "https://mirror.ccs.tencentyun.com"
+    - "https://hub-mirror.c.163.com"
+  # 日志轮转，防止容器日志撑爆 WSL2 磁盘
+  log-driver: "json-file"
+  log-opts:
+    max-size: "50m"
+    max-file: "3"
+  # 存储驱动：WSL2 ext4.vhdx 上 overlay2 性能最优
+  storage-driver: "overlay2"
+  # 默认 ulimit，继承到所有容器
+  default-ulimits:
+    nofile:
+      Name: "nofile"
+      Soft: 65535
+      Hard: 65535
+  # 启用 BuildKit (加速镜像构建)
+  features:
+    buildkit: true
+  # 允许非 root 用户通过 docker context 访问
+  userland-proxy: false

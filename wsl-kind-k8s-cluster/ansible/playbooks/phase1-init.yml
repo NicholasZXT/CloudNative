@@ -1,0 +1,30 @@
+---
+- name: "Phase 1: WSL2 System Tuning & Docker Engine Configuration"
+  hosts: local
+  gather_facts: true
+
+  vars_files:
+      - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: 确认 Ansible 控制节点即为目标主机
+      ansible.builtin.assert:
+        that:
+          - ansible_connection == 'local'
+        fail_msg: "此 Playbook 仅允许在 WSL2 内部以 local 模式执行"
+
+  roles:
+    - role: wsl2-tuning
+      tags: [tuning, always]
+    - role: docker-engine
+      tags: [docker, always]
+
+  post_tasks:
+    - name: Phase 1 完成摘要
+      ansible.builtin.debug:
+        msg: |
+          ✅ Phase 1 初始化完成
+          - sysctl 参数: {{ sysctl_params | length }} 项已应用
+          - Docker 存储驱动: overlay2
+          - 镜像加速: {{ docker_daemon_config['registry-mirrors'] | join(', ') }}
+          - 下一步: 执行 Phase 2 创建 Kind 集群

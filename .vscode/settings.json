@@ -1,0 +1,19 @@
+{
+    "chat.disableAIFeatures": false,
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "ansible.validation.lint.enabled": false,
+    "ansible.ansible.path": " D:\\miniforge3\\envs\\ansible\\Scripts\\ansible",
+    "ansible.validation.lint.path": "D:\\miniforge3\\envs\\ansible\\Scripts\\ansible-lint.exe",
+    "ansible.python.interpreterPath": "D:\\miniforge3\\envs\\ansible\\python.exe",
+    // "sync-rsync.useWSL": false,
+    // "sync-rsync.notification": true,
+    // "sync-rsync.executable": "wsl",
+    // "sync-rsync.args": ["rsync"],
+    // "sync-rsync.remote": "/home/zxt/k8s-kind",
+    // "sync-rsync.exclude": [
+    //     ".git",
+    //     ".vscode",
+    //     "vagrant-cluster"
+    // ],
+}

@@ -1,0 +1,35 @@
+---
+- name: 加载 br_netfilter 模块 (K8s 网络前置条件)
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+    persistent: present
+  loop:
+    - br_netfilter
+    - overlay
+
+- name: 部署 K8s sysctl 调优配置
+  ansible.builtin.template:
+    src: sysctl-k8s.conf.j2
+    dest: /etc/sysctl.d/99-k8s-lab.conf
+    owner: root
+    mode: '0644'
+  notify: reload sysctl
+
+- name: 立即应用 sysctl 参数
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+
+- name: 部署文件描述符/进程数限制
+  ansible.builtin.template:
+    src: limits-k8s.conf.j2
+    dest: /etc/security/limits.d/99-k8s-lab.conf
+    owner: root
+    mode: '0644'
+
+- name: 确保 PAM 加载 limits 配置
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-session
+    regexp: '^session\s+required\s+pam_limits.so'
+    line: 'session required pam_limits.so'
+    state: present

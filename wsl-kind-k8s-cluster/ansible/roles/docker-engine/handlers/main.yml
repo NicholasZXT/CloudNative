@@ -1,0 +1,16 @@
+---
+- name: restart docker
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  ignore_errors: true
+  register: handler_systemd
+
+- name: restart docker (non-systemd fallback)
+  ansible.builtin.shell: |
+    pkill -x dockerd || true
+    sleep 2
+    nohup dockerd > /var/log/dockerd.log 2>&1 &
+    sleep 3
+  when: handler_systemd is failed
+  listen: restart docker

@@ -1,0 +1,22 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Sync2WSL",
+            "type": "shell",
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": true,
+                "clear": false,
+                "close": true
+            },
+            "command": "wsl -d Ubuntu-26.04 -- rsync --recursive --delete /mnt/d/Documents/Python-Projects/CloudNative/wsl-kind-k8s-cluster/ /home/zxt/k8s-kind"
+        }
+    ]
+}
