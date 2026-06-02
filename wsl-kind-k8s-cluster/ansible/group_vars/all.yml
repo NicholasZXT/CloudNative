@@ -25,8 +25,8 @@ file_limits:
 docker_daemon_config:
   # 国内镜像加速 (按需替换为你可用的源)
   registry-mirrors:
-    - "https://mirror.ccs.tencentyun.com"
-    - "https://hub-mirror.c.163.com"
+    - "https://docker.xuanyuan.me"
+    - "https://docker.m.daocloud.io"
   # 日志轮转，防止容器日志撑爆 WSL2 磁盘
   log-driver: "json-file"
   log-opts:
@@ -45,3 +45,70 @@ docker_daemon_config:
     buildkit: true
   # 允许非 root 用户通过 docker context 访问
   userland-proxy: false
+
+# ==========================================
+# Phase 2: K8s CLI & Kind Cluster
+# ==========================================
+# 严格锁定版本，避免 K8s 生态版本漂移导致兼容性问题
+k8s_versions:
+  kind: "v0.24.0"
+  kubectl: "v1.31.1"
+  helm: "v3.16.2"
+
+# 本地文件安装配置（解决网络下载慢的问题）
+# 
+# 使用说明：
+# 1. 将 from_local 设置为 true 启用本地安装模式
+# 2. 分别指定 kubectl、kind、helm 的本地文件绝对路径
+# 3. kubectl 和 kind 需要是可直接执行的二进制文件
+# 4. helm 需要是 .tar.gz 格式的压缩包
+#
+# 示例配置：
+# k8s_cluster_local:
+#   from_local: true
+#   kubectl: "/mnt/c/Downloads/kubectl"
+#   kind: "/mnt/c/Downloads/kind"
+#   helm: "/mnt/c/Downloads/helm-v3.16.2-linux-amd64.tar.gz"
+#
+k8s_cluster_local:
+  # 是否使用本地文件安装（true=本地，false=网络下载）
+  from_local: true
+  # 本地kubectl二进制文件路径（绝对路径）
+  kubectl: "/mnt/d/Downloads/kubectl"
+  # 本地helm压缩包路径（.tar.gz格式，绝对路径）
+  helm: "/mnt/d/Downloads/helm-v3.16.2-linux-amd64.tar.gz"
+  # 本地kind二进制文件路径（绝对路径）
+  kind: "/mnt/d/Downloads/kind-linux-amd64"
+
+kind_cluster: 
+  name: "bigdata-lab"
+  # Kind 节点镜像必须与 kubectl 版本匹配
+  # 格式: kindest/node:vX.Y.Z@sha256:<hash> 或 kindest/node:vX.Y.Z
+  # 注意：kubectl版本是v1.31.1，所以node_image也应该使用v1.31.1
+  node_image: "kindest/node:v1.31.1"
+  pod_subnet: "10.244.0.0/16"
+  service_subnet: "10.96.0.0/12"
+  # WSL2 内数据持久化挂载点
+  data_mount_host: "/opt/k8s-data"
+  data_mount_container: "/data"
+
+# 端口映射: Windows localhost -> Kind NodePort
+kind_port_mappings:
+  - host_port: 80
+    container_port: 30080
+    protocol: TCP
+    description: "Ingress HTTP"
+  - host_port: 443
+    container_port: 30443
+    protocol: TCP
+    description: "Ingress HTTPS"
+  - host_port: 30000
+    container_port: 30000
+    protocol: TCP
+    description: "NodePort Range Start"
+
+# kubeconfig 导出路径
+kubeconfig_paths:
+  wsl: "/home/{{ ansible_facts['env']['USER'] | default('zxt') }}/.kube/config"
+  # Windows 侧路径通过 /mnt/c 访问
+  windows: "/mnt/c/Users/{{ ansible_facts['env']['USER'] | default(lookup('env', 'SUDO_USER')) | default('zxt') }}/.kube/config"

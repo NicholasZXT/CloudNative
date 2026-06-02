@@ -1,0 +1,68 @@
+---
+- name: "Phase 2: K8s CLI Tools & Kind Cluster Creation"
+  hosts: local
+  gather_facts: true
+
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: 验证 Docker 运行状态
+      ansible.builtin.command: docker info
+      changed_when: false
+      failed_when: docker_check.rc != 0
+      register: docker_check
+
+    - name: 显示环境信息
+      ansible.builtin.debug:
+        msg:
+          - "🔍 环境检查:"
+          - "   WSL2 发行版: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+          - "   内核版本: {{ ansible_facts['kernel'] }}"
+          - "   可用 CPU: {{ ansible_facts['processor_vcpus'] }} 核心"
+          - "   可用内存: {{ ansible_facts['memtotal_mb'] }} MB"
+          - "   Docker 状态: ✅ Running"
+
+  roles:
+    - role: k8s-cli-tools
+      tags: [cli, tools]
+    - role: kind-cluster
+      tags: [kind, cluster]
+
+  post_tasks:
+    - name: 集群健康检查 - 节点状态
+      ansible.builtin.command: kubectl get nodes -o wide
+      changed_when: false
+      register: nodes_status
+
+    - name: 集群健康检查 - 系统组件
+      ansible.builtin.command: kubectl get pods -A
+      changed_when: false
+      register: system_pods
+      failed_when: false
+
+    - name: 输出集群状态摘要
+      ansible.builtin.debug:
+        msg:
+          - ""
+          - "═══════════════════════════════════════════════════════"
+          - "  🎉 Phase 2 完成 - Kind 集群就绪"
+          - "═══════════════════════════════════════════════════════"
+          - ""
+          - "📊 集群节点状态:"
+          - "{{ nodes_status.stdout_lines | join('\n') }}"
+          - ""
+          - "📦 系统组件状态:"
+          - "{% if system_pods.rc == 0 %}{{ system_pods.stdout_lines | join('\n') }}{% else %}⏳ 组件正在启动中...{% endif %}"
+          - ""
+          - "🔗 访问信息:"
+          - "   WSL2 kubeconfig: {{ kubeconfig_paths.wsl }}"
+          - "   Windows kubeconfig: {{ kubeconfig_paths.windows }}"
+          - ""
+          - "📝 下一步操作:"
+          - "   1. 在 WSL2 中执行: kubectl get nodes"
+          - "   2. 在 Windows PowerShell 中执行: kubectl get nodes"
+          - "   3. 继续执行 Phase 3 部署基础设施组件"
+          - ""
+          - "═══════════════════════════════════════════════════════"
+          - ""

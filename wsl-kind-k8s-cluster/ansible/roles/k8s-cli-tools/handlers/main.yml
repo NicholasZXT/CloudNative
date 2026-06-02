@@ -1,0 +1,10 @@
+---
+- name: verify kubectl installation
+  ansible.builtin.command: kubectl version --client --short
+  changed_when: false
+  register: kubectl_verify
+  failed_when: kubectl_verify.rc != 0
+
+- name: display kubectl verification
+  ansible.builtin.debug:
+    msg: "✅ kubectl 验证成功: {{ kubectl_verify.stdout }}"

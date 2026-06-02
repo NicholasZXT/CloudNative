@@ -1,0 +1,7 @@
+---
+- name: copy kubeconfig to windows
+  ansible.builtin.copy:
+    src: "{{ kubeconfig_paths.wsl }}"
+    dest: "{{ kubeconfig_paths.windows }}"
+    mode: '0600'
+  ignore_errors: true

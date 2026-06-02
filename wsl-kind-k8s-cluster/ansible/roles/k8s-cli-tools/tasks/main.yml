@@ -1,0 +1,281 @@
+---
+- name: 检测已安装的 CLI 工具版本
+  block:
+    - name: 检测 kubectl 版本
+      ansible.builtin.command: "kubectl version --client --short"
+      register: kubectl_version
+      changed_when: false
+      failed_when: false
+
+    - name: 检测 kind 版本
+      ansible.builtin.command: "kind version"
+      register: kind_version
+      changed_when: false
+      failed_when: false
+
+    - name: 检测 helm 版本
+      ansible.builtin.command: "helm version --short"
+      register: helm_version
+      changed_when: false
+      failed_when: false
+
+  rescue:
+    - name: 处理版本检测异常
+      ansible.builtin.debug:
+        msg: "⚠️ 版本检测出现异常，将继续安装流程"
+
+# 合并结果以便后续使用
+- name: 构建版本检测结果
+  ansible.builtin.set_fact:
+    cli_versions:
+      results:
+        - item: "kubectl"
+          rc: "{{ kubectl_version.rc | default(1) }}"
+          stdout: "{{ kubectl_version.stdout | default('') }}"
+          stdout_lines: "{{ kubectl_version.stdout_lines | default([]) }}"
+        - item: "kind"
+          rc: "{{ kind_version.rc | default(1) }}"
+          stdout: "{{ kind_version.stdout | default('') }}"
+          stdout_lines: "{{ kind_version.stdout_lines | default([]) }}"
+        - item: "helm"
+          rc: "{{ helm_version.rc | default(1) }}"
+          stdout: "{{ helm_version.stdout | default('') }}"
+          stdout_lines: "{{ helm_version.stdout_lines | default([]) }}"
+
+- name: 显示安装策略和版本信息
+  ansible.builtin.debug:
+    msg:
+      - ""
+      - "═══════════════════════════════════════════════════"
+      - "  K8s CLI 工具安装配置"
+      - "═══════════════════════════════════════════════════"
+      - "  安装模式: {% if k8s_cluster_local.from_local %} 本地文件{% else %} 网络下载{% endif %}"
+      - ""
+      - "  kubectl {{ k8s_versions.kubectl }}"
+      - "  来源: {% if k8s_cluster_local.from_local and k8s_cluster_local.kubectl %}{{ k8s_cluster_local.kubectl }}{% else %}https://dl.k8s.io/release/{{ k8s_versions.kubectl }}/bin/linux/{{ cli_arch }}/kubectl{% endif %}"
+      - ""
+      - "  kind {{ k8s_versions.kind }}"
+      - "  来源: {% if k8s_cluster_local.from_local and k8s_cluster_local.kind %}{{ k8s_cluster_local.kind }}{% else %}https://kind.sigs.k8s.io/dl/{{ k8s_versions.kind }}/kind-linux-{{ cli_arch }}{% endif %}"
+      - ""
+      - "  helm {{ k8s_versions.helm }}"
+      - "  来源: {% if k8s_cluster_local.from_local and k8s_cluster_local.helm %}{{ k8s_cluster_local.helm }}{% else %}https://get.helm.sh/helm-{{ k8s_versions.helm }}-linux-{{ cli_arch }}.tar.gz{% endif %}"
+      - ""
+      - "═══════════════════════════════════════════════════"
+      - ""
+
+# ==========================================
+# kubectl 安装
+# ==========================================
+- name: 从本地复制 kubectl
+  ansible.builtin.copy:
+    src: "{{ k8s_cluster_local.kubectl }}"
+    dest: "{{ cli_install_dir }}/kubectl"
+    mode: '0755'
+  when: >
+    k8s_cluster_local.from_local | default(false) and
+    k8s_cluster_local.kubectl | default('') | length > 0 and
+    (cli_versions.results[0].rc != 0 or
+     k8s_versions.kubectl not in (cli_versions.results[0].stdout | default('')))
+  notify: verify kubectl installation
+
+- name: 从网络下载 kubectl
+  ansible.builtin.get_url:
+    url: "https://dl.k8s.io/release/{{ k8s_versions.kubectl }}/bin/linux/{{ cli_arch }}/kubectl"
+    dest: "{{ cli_install_dir }}/kubectl"
+    mode: '0755'
+    timeout: 300
+    checksum: "sha256:https://dl.k8s.io/release/{{ k8s_versions.kubectl }}/bin/linux/{{ cli_arch }}/kubectl.sha256"
+  when: >
+    not (k8s_cluster_local.from_local | default(false)) or
+    (k8s_cluster_local.kubectl | default('') | length == 0) and
+    (cli_versions.results[0].rc != 0 or
+     k8s_versions.kubectl not in (cli_versions.results[0].stdout | default('')))
+
+# ==========================================
+# kind 安装
+# ==========================================
+- name: 从本地复制 kind
+  ansible.builtin.copy:
+    src: "{{ k8s_cluster_local.kind }}"
+    dest: "{{ cli_install_dir }}/kind"
+    mode: '0755'
+  when: >
+    k8s_cluster_local.from_local | default(false) and
+    k8s_cluster_local.kind | default('') | length > 0 and
+    (cli_versions.results[1].rc != 0 or
+     k8s_versions.kind not in (cli_versions.results[1].stdout | default('')))
+
+- name: 从网络下载 kind
+  ansible.builtin.get_url:
+    url: "https://kind.sigs.k8s.io/dl/{{ k8s_versions.kind }}/kind-linux-{{ cli_arch }}"
+    dest: "{{ cli_install_dir }}/kind"
+    mode: '0755'
+    timeout: 300
+  when: >
+    not (k8s_cluster_local.from_local | default(false)) or
+    (k8s_cluster_local.kind | default('') | length == 0) and
+    (cli_versions.results[1].rc != 0 or
+     k8s_versions.kind not in (cli_versions.results[1].stdout | default('')))
+
+# ==========================================
+# Helm 安装
+# ==========================================
+- name: 从本地安装 Helm
+  block:
+    - name: 检查本地 Helm 压缩包是否存在
+      ansible.builtin.stat:
+        path: "{{ k8s_cluster_local.helm }}"
+      register: helm_local_stat
+
+    - name: 解压本地 Helm 压缩包
+      ansible.builtin.unarchive:
+        src: "{{ k8s_cluster_local.helm }}"
+        dest: /tmp/
+        remote_src: false
+        creates: "/tmp/linux-{{ cli_arch }}/helm"
+      when: helm_local_stat.stat.exists
+
+    - name: 移动 Helm 二进制到 PATH
+      ansible.builtin.copy:
+        src: "/tmp/linux-{{ cli_arch }}/helm"
+        dest: "{{ cli_install_dir }}/helm"
+        mode: '0755'
+        remote_src: true
+
+    - name: 清理 Helm 临时文件
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/linux-{{ cli_arch }}"
+  when: >
+    k8s_cluster_local.from_local | default(false) and
+    k8s_cluster_local.helm | default('') | length > 0 and
+    (cli_versions.results[2].rc != 0 or
+     k8s_versions.helm not in (cli_versions.results[2].stdout | default('')))
+
+- name: 从网络安装 Helm
+  block:
+    - name: 下载 Helm 压缩包
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-{{ k8s_versions.helm }}-linux-{{ cli_arch }}.tar.gz"
+        dest: "/tmp/helm-{{ k8s_versions.helm }}-linux-{{ cli_arch }}.tar.gz"
+        mode: '0644'
+        timeout: 300
+      when: >
+        cli_versions.results[2].rc != 0 or
+        k8s_versions.helm not in (cli_versions.results[2].stdout | default(''))
+
+    - name: 解压 Helm
+      ansible.builtin.unarchive:
+        src: "/tmp/helm-{{ k8s_versions.helm }}-linux-{{ cli_arch }}.tar.gz"
+        dest: /tmp/
+        remote_src: true
+        creates: "/tmp/linux-{{ cli_arch }}/helm"
+      when: >
+        cli_versions.results[2].rc != 0 or
+        k8s_versions.helm not in (cli_versions.results[2].stdout | default(''))
+
+    - name: 移动 Helm 二进制到 PATH
+      ansible.builtin.copy:
+        src: "/tmp/linux-{{ cli_arch }}/helm"
+        dest: "{{ cli_install_dir }}/helm"
+        mode: '0755'
+        remote_src: true
+      when: >
+        cli_versions.results[2].rc != 0 or
+        k8s_versions.helm not in (cli_versions.results[2].stdout | default(''))
+
+    - name: 清理 Helm 临时文件
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/helm-{{ k8s_versions.helm }}-linux-{{ cli_arch }}.tar.gz"
+        - "/tmp/linux-{{ cli_arch }}"
+      when: >
+        cli_versions.results[2].rc != 0 or
+        k8s_versions.helm not in (cli_versions.results[2].stdout | default(''))
+  when: >
+    not (k8s_cluster_local.from_local | default(false)) or
+    (k8s_cluster_local.helm | default('') | length == 0)
+
+# ==========================================
+# 验证安装
+# ==========================================
+- name: 验证所有 CLI 工具可用
+  block:
+    - name: 验证 kubectl
+      ansible.builtin.command: "kubectl version --client"
+      register: kubectl_final
+      changed_when: false
+      failed_when: false
+
+    - name: 验证 kind
+      ansible.builtin.command: "kind version"
+      register: kind_final
+      changed_when: false
+      failed_when: false
+
+    - name: 验证 helm
+      ansible.builtin.command: "helm version --short"
+      register: helm_final
+      changed_when: false
+      failed_when: false
+
+  rescue:
+    - name: 处理验证异常
+      ansible.builtin.debug:
+        msg: "⚠️ 验证过程出现异常"
+
+# 合并验证结果
+- name: 构建最终验证结果
+  ansible.builtin.set_fact:
+    final_versions:
+      results:
+        - item: "kubectl"
+          rc: "{{ kubectl_final.rc | default(1) }}"
+          stdout: "{{ kubectl_final.stdout | default('') }}"
+          stdout_lines: "{{ kubectl_final.stdout_lines | default([]) }}"
+        - item: "kind"
+          rc: "{{ kind_final.rc | default(1) }}"
+          stdout: "{{ kind_final.stdout | default('') }}"
+          stdout_lines: "{{ kind_final.stdout_lines | default([]) }}"
+        - item: "helm"
+          rc: "{{ helm_final.rc | default(1) }}"
+          stdout: "{{ helm_final.stdout | default('') }}"
+          stdout_lines: "{{ helm_final.stdout_lines | default([]) }}"
+
+- name: 检查 kubectl 是否安装成功
+  ansible.builtin.assert:
+    that:
+      - final_versions.results[0].rc == 0 or "'Client Version' in final_versions.results[0].stdout"
+    fail_msg: "❌ kubectl 安装失败或无法执行"
+    success_msg: "✅ kubectl 安装成功"
+  when: cli_versions.results[0].rc != 0 or k8s_versions.kubectl not in (cli_versions.results[0].stdout | default(''))
+
+- name: 检查 kind 是否安装成功
+  ansible.builtin.assert:
+    that:
+      - final_versions.results[1].rc == 0
+    fail_msg: "❌ kind 安装失败或无法执行"
+    success_msg: "✅ kind 安装成功"
+  when: cli_versions.results[1].rc != 0 or k8s_versions.kind not in (cli_versions.results[1].stdout | default(''))
+
+- name: 检查 helm 是否安装成功
+  ansible.builtin.assert:
+    that:
+      - final_versions.results[2].rc == 0
+    fail_msg: "❌ helm 安装失败或无法执行"
+    success_msg: "✅ helm 安装成功"
+  when: cli_versions.results[2].rc != 0 or k8s_versions.helm not in (cli_versions.results[2].stdout | default(''))
+
+- name: 输出 CLI 工具版本信息
+  ansible.builtin.debug:
+    msg:
+      - ""
+      - "✅ K8s CLI 工具安装完成:"
+      - "   kubectl: {{ final_versions.results[0].stdout_lines | join(' ') }}"
+      - "   kind:    {{ final_versions.results[1].stdout }}"
+      - "   helm:    {{ final_versions.results[2].stdout }}"
+      - ""

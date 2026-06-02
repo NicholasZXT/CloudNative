@@ -1,0 +1,104 @@
+---
+- name: 检查 Kind 集群是否已存在
+  ansible.builtin.command: "kind get clusters"
+  register: existing_clusters
+  changed_when: false
+  failed_when: false
+
+- name: 创建数据持久化目录
+  ansible.builtin.file:
+    path: "{{ kind_cluster.data_mount_host }}"
+    state: directory
+    owner: "{{ ansible_facts['env']['USER'] | default(ansible_facts['user_id']) }}"
+    group: "{{ ansible_facts['env']['USER'] | default(ansible_facts['user_gid']) }}"
+    mode: '0755'
+
+- name: 渲染 Kind 集群配置文件
+  ansible.builtin.template:
+    src: kind-config.yaml.j2
+    dest: "/tmp/kind-config-{{ kind_cluster.name }}.yaml"
+    mode: '0644'
+  register: kind_config_rendered
+
+- name: 显示集群配置信息
+  ansible.builtin.debug:
+    msg:
+      - "📋 Kind 集群配置:"
+      - "   集群名称: {{ kind_cluster.name }}"
+      - "   节点镜像: {{ kind_cluster.node_image }}"
+      - "   Pod 子网: {{ kind_cluster.pod_subnet }}"
+      - "   Service 子网: {{ kind_cluster.service_subnet }}"
+      - "   数据挂载点: {{ kind_cluster.data_mount_host }} -> {{ kind_cluster.data_mount_container }}"
+      - "   端口映射: {{ kind_port_mappings | length }} 个"
+      - "   配置文件: {{ kind_config_rendered.dest }}"
+
+- name: 创建 Kind 集群 (首次创建耗时较长)
+  ansible.builtin.command: >
+    kind create cluster
+    --config /tmp/kind-config-{{ kind_cluster.name }}.yaml
+    --wait 5m
+    --verbosity 3
+  when: kind_cluster.name not in (existing_clusters.stdout_lines | default([]))
+  register: kind_create
+  timeout: 900
+  retries: 2
+  delay: 10
+
+- name: 等待所有节点 Ready
+  ansible.builtin.command: kubectl wait --for=condition=Ready nodes --all --timeout=300s
+  changed_when: false
+  register: nodes_ready
+  retries: 10
+  delay: 15
+  until: nodes_ready.rc == 0
+
+- name: 导出 kubeconfig 到 WSL2
+  ansible.builtin.shell: |
+    mkdir -p $(dirname {{ kubeconfig_paths.wsl }})
+    kind get kubeconfig --name {{ kind_cluster.name }} > {{ kubeconfig_paths.wsl }}
+    chmod 600 {{ kubeconfig_paths.wsl }}
+  args:
+    creates: "{{ kubeconfig_paths.wsl }}"
+
+- name: 修正 kubeconfig API Server 地址为 localhost
+  ansible.builtin.replace:
+    path: "{{ kubeconfig_paths.wsl }}"
+    regexp: 'server: https://127\.0\.0\.1:\d+'
+    replace: "server: https://localhost:{{ kind_port_mappings | selectattr('description', 'equalto', 'Ingress HTTP') | map(attribute='host_port') | first | default(6443) }}"
+  notify: copy kubeconfig to windows
+
+- name: 验证集群节点状态
+  ansible.builtin.command: kubectl get nodes -o wide
+  register: cluster_nodes
+  changed_when: false
+
+- name: 显示集群节点信息
+  ansible.builtin.debug:
+    msg:
+      - "✅ Kind 集群节点状态:"
+      - "{{ cluster_nodes.stdout_lines | join('\n') }}"
+
+- name: 复制 kubeconfig 到 Windows 侧
+  ansible.builtin.copy:
+    src: "{{ kubeconfig_paths.wsl }}"
+    dest: "{{ kubeconfig_paths.windows }}"
+    mode: '0600'
+  ignore_errors: true
+  register: win_copy_result
+
+- name: 输出 kubeconfig 同步状态
+  ansible.builtin.debug:
+    msg: >-
+      {% if win_copy_result is succeeded %}
+      ✅ kubeconfig 已同步至 Windows: {{ kubeconfig_paths.windows }}
+      
+      🎯 在 Windows PowerShell 中执行以下命令验证:
+         kubectl get nodes
+      
+      {% else %}
+      ⚠️ Windows 侧 kubeconfig 同步失败，请手动执行:
+         cp {{ kubeconfig_paths.wsl }} /mnt/c/Users/$USER/.kube/config
+      
+      🎯 或在 Windows PowerShell 中执行:
+         kind export kubeconfig --name {{ kind_cluster.name }}
+      {% endif %}

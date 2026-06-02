@@ -1,0 +1,35 @@
+# Managed by Ansible - Kind Cluster Configuration
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: {{ kind_cluster.name }}
+networking:
+  podSubnet: "{{ kind_cluster.pod_subnet }}"
+  serviceSubnet: "{{ kind_cluster.service_subnet }}"
+  # 禁用默认 CNI，后续由 Calico/Cilium 接管（Phase 3）
+  disableDefaultCNI: true
+nodes:
+  - role: control-plane
+    image: {{ kind_cluster.node_image }}
+    extraPortMappings:
+{% for mapping in kind_port_mappings %}
+      - containerPort: {{ mapping.container_port }}
+        hostPort: {{ mapping.host_port }}
+        protocol: {{ mapping.protocol }}
+        # {{ mapping.description }}
+{% endfor %}
+    extraMounts:
+      - hostPath: {{ kind_cluster.data_mount_host }}
+        containerPath: {{ kind_cluster.data_mount_container }}
+        readOnly: false
+  - role: worker
+    image: {{ kind_cluster.node_image }}
+    extraMounts:
+      - hostPath: {{ kind_cluster.data_mount_host }}
+        containerPath: {{ kind_cluster.data_mount_container }}
+        readOnly: false
+  - role: worker
+    image: {{ kind_cluster.node_image }}
+    extraMounts:
+      - hostPath: {{ kind_cluster.data_mount_host }}
+        containerPath: {{ kind_cluster.data_mount_container }}
+        readOnly: false
