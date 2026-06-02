@@ -1,0 +1,93 @@
+---
+- name: assert | check redis_version
+  ansible.builtin.assert:
+    that: 
+      - redis_version is defined
+      - redis_version != "unknown"
+    quiet: true
+    msg: redis_version is not defined
+
+- name: assert | check redis_local_tar
+  ansible.builtin.assert:
+    that: 
+      - redis_local_tar is defined
+      - redis_local_tar != "unknown"
+    quiet: true
+    msg: redis_local_tar is not defined
+
+- name: assert | check redis_extract_dir
+  ansible.builtin.assert:
+    that: 
+      - redis_extract_dir is defined
+      - redis_extract_dir != "unknown"
+    quiet: true
+    msg: redis_extract_dir is not defined
+
+- name: "Unarchive redis tgz to '{{ redis_extract_dir }}'"
+  ansible.builtin.unarchive:
+    src: "{{ redis_local_tar }}"
+    dest: "{{ redis_extract_dir }}"
+    list_files: yes
+    creates: "{{ redis_extract_dir }}/redis-{{ redis_version }}/Makefile"
+  register: archive_contents
+
+# 重复执行 make && make install 一般不会有问题
+- name: Execute make && make install for redis
+  shell: make && make install
+  args:
+    chdir: "{{ redis_extract_dir }}/redis-{{ redis_version }}"
+
+- name: Ensure redis group exists
+  ansible.builtin.group:
+    name: "{{ redis_group}}"
+    state: present
+
+- name: Ensure redis user and exist
+  user:
+    name: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    system: yes
+    create_home: no
+    shell: /sbin/nologin
+
+- name: Ensure Redis configuration dir mode.
+  file:
+    path: "{{ redis_conf_path | dirname }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    mode: "{{ redis_conf_dir_mode }}"
+
+- name: Ensure the directory of dbdir exists
+  file:
+    path: "{{ redis_dbdir }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    mode: '0755'
+
+- name: Ensure the directory for log file exists
+  file:
+    path: "{{ redis_logfile | dirname }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    mode: '0755'
+
+- name: Create systemd service file for Redis
+  template:
+    src: redis.service.j2
+    dest: /etc/systemd/system/redis.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: "Reload systemd daemon and restart redis"  # 触发 handler
+
+- name: Ensure the directory for PID file exists
+  file:
+    path: "{{ redis_pidfile | dirname }}"
+    state: directory
+    owner: "{{ redis_user }}"
+    group: "{{ redis_group }}"
+    mode: '0755'
+  # 如果 PID 文件目录不存在，需要先创建

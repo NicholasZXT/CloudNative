@@ -1,0 +1,42 @@
+- name: Remove namenode dir
+  when: 
+    - hadoop_reformat
+    - ansible_hostname == hadoop_namenode
+  file:
+    path: "{{ hadoop_hdfs_site['dfs.namenode.name.dir'] | default(hadoop_hdfs_site_defaults['dfs.namenode.name.dir']) }}"
+    state: absent
+
+- name: Remove datanode dir
+  when: 
+    - hadoop_reformat
+    - ansible_hostname in hadoop_workers
+  file:
+    path: "{{ hadoop_hdfs_site['dfs.datanode.data.dir'] | default(hadoop_hdfs_site_defaults['dfs.datanode.data.dir']) }}"
+    state: absent
+
+- name: Remove hadoop log dir
+  when: 
+    - hadoop_reformat
+  file:
+    path: "{{ hadoop_distro_home }}/logs"
+    state: absent
+
+- name: Remove hadoop tmp dir
+  when: 
+    - hadoop_reformat
+  file:
+    path: "{{ hadoop_core_site['hadoop.tmp.dir'] | default(hadoop_core_site_defaults['hadoop.tmp.dir']) }}"
+    state: absent
+
+- name: Initializing Namenode data
+  when: ansible_hostname == hadoop_namenode
+  shell: "{{ hadoop_distro_home }}/bin/hdfs namenode -format {{ hadoop_cluster_name }}"
+  become: yes
+  become_user: hdfs
+  register: init_res
+  ignore_errors: true
+
+- name: Initializing Namenode result
+  when: ansible_hostname == hadoop_namenode
+  debug:
+    var: init_res.stderr_lines

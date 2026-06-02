@@ -1,0 +1,66 @@
+---
+# - name: Set JAVA_HOME in hadoop-env.sh # /etc/alternatives/jre/bin/java
+#   lineinfile:
+#     path: "{{ hadoop_distro_home }}/etc/hadoop/hadoop-env.sh"
+#     line: export JAVA_HOME={{ java_home }}
+#     insertafter: "# export JAVA_HOME="
+#     regexp: "^export JAVA_HOME=.*$"
+
+- name: Generate zookeeper configuration files
+  template:
+    src: ./templates/zoo.cfg
+    dest: "{{ zookeeper_distro_home }}/conf/zoo.cfg"
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: u=rwx,g=rwx,o=r
+
+
+- name: Remove zookeeper data dir
+  when: 
+    - zookeeper_reformat
+  file:
+    path: "{{ zookeeper_data_dir }}"
+    state: absent
+
+- name: Create zookeeper data dir
+  file:
+    path: "{{ zookeeper_data_dir }}"
+    state: directory
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+
+- name: Create zookeeper myid file in data dir
+  file:
+    path: "{{ zookeeper_data_dir }}/myid"
+    state: touch
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: u=rwx,g=rwx,o=r
+
+- name: Write zookeeper server id myid file
+  ansible.builtin.lineinfile:
+    path: "{{ zookeeper_data_dir }}/myid"
+    line: "{{ zookeeper_workders[ansible_hostname] | default(1) }}"
+    state: present
+  become: yes
+  become_user: "{{ zookeeper_user }}"
+
+
+- name: Remove zookeeper log dir
+  when: 
+    - zookeeper_reformat
+  file:
+    path: "{{ zookeeper_log_dir }}"
+    state: absent
+
+- name: Create zookeeper log dir
+  file:
+    path: "{{ zookeeper_log_dir }}"
+    state: directory
+    owner: "{{ zookeeper_user }}"
+    group: "{{ zookeeper_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+

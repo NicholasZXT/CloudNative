@@ -1,0 +1,21 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: ansible-role-mysql
+      mysql_port: 3307
+      mysql_databases:
+        - name: my_db
+          encoding: utf8
+          collation: utf8_bin
+        # - name: imported
+        #   state: import
+        #   target: /path/to/dump.sql
+      mysql_users:
+        - name: my_user
+          password: my_pass
+          priv: "my_db.*:ALL"
+          update_password: on_create

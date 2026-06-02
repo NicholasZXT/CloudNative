@@ -1,0 +1,76 @@
+---
+# ---------- 变量检查 ---------
+- name: assert | check java_home
+  ansible.builtin.assert:
+    that: 
+      - java_home is defined
+      - java_home != "unknown"
+    # success_msg: java_home is defined
+    fail_msg: java_home is not defined
+
+- name: assert | check spark_version
+  ansible.builtin.assert:
+    that: 
+      - spark_version is defined
+      - spark_version != "unknown"
+    # success_msg: spark_version is defined
+    fail_msg: spark_version is not defined
+
+- name: assert | check spark_local_tar
+  ansible.builtin.assert:
+    that: 
+      - spark_local_tar is defined
+      - spark_local_tar != "unknown"
+    # success_msg: spark_local_tar is defined
+    fail_msg: spark_local_tar is not defined
+
+- name: assert | check delete_target_dir and reconfig
+  ansible.builtin.assert:
+    that: 
+      - not (delete_target_dir|bool and reconfig|bool)
+    fail_msg: >-
+      Assertion failed: Both variables 'delete_target_dir' and 'reconfig' are set to true.
+      This configuration is not allowed. Please ensure that at most one of them is true.
+      Current values: delete_target_dir={{ delete_target_dir }}, reconfig={{ reconfig }}
+
+
+# ------------ 确认服务用户/用户组存在 ------------------
+- name: "Ensure spark group[{{ spark_group }}] exists"
+  ansible.builtin.group:
+    name: "{{ spark_group }}"
+    state: present
+
+- name: "Ensure spark user[{{ spark_user }}] exist"
+  ansible.builtin.user:
+    name: "{{ spark_user }}"
+    group: "{{ spark_group }}"
+    system: yes
+    create_home: no
+    shell: /sbin/nologin
+
+# ------------ 确认安装目录存在以及权限正确 ------------------
+- name: "Remove old target dir [{{ spark_target_dir }}]"
+  file:
+    path: "{{ spark_target_dir }}"
+    state: absent
+  when: delete_target_dir
+
+- name: "Ensure target dir [{{ spark_target_dir }}] exist"
+  ansible.builtin.file:
+    path: "{{ spark_target_dir }}"
+    state: directory
+    owner: "{{ spark_user }}"
+    group: "{{ spark_group }}"
+    mode: '0755'
+    recurse: yes
+
+# -------------------
+- name: Install spark
+  ansible.builtin.include_tasks: install.yml
+  when: not reconfig
+  
+- name: Configure spark
+  ansible.builtin.include_tasks: configure.yml
+
+# - name: Start spark services
+#   ansible.builtin.include_tasks: start.yml

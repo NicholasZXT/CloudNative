@@ -1,0 +1,24 @@
+java_home: unknown
+zookeeper_version: unknown
+zookeeper_local_tar: unknown
+
+zookeeper_user: zookeeper
+zookeeper_group: zookeeper
+zookeeper_target_dir: /opt/zookeeper
+zookeeper_distro_home: "{{ zookeeper_target_dir }}/current"
+
+zookeeper_data_dir: "{{ zookeeper_distro_home }}/data"
+zookeeper_log_dir: "{{ zookeeper_distro_home }}/logs"
+zookeeper_workders: 
+  localhost: 1
+
+# 是否删除已有的target_dir
+delete_target_dir: false
+# 是否重新部署配置项
+reconfig: false
+
+# zoo.cfg
+zoo_cfg: {}
+zoo_cfg_defaults:
+  clientPort: 2181
+

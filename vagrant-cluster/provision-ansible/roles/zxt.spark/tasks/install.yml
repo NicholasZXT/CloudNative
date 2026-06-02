@@ -1,0 +1,43 @@
+---
+- name: "Unarchive spark tgz to '{{ spark_target_dir }}'"
+  ansible.builtin.unarchive:
+    src: "{{ spark_local_tar }}"
+    dest: "{{ spark_target_dir }}"
+    list_files: yes
+    creates: "{{ spark_target_dir }}/apache-spark-{{ spark_version }}-bin/bin/zkServer.sh"
+  register: unarchive_res
+
+
+- name: Debug | Show unarchive result
+  debug:
+    msg: "unarchive_res.failed: {{ unarchive_res.failed }}, unarchive_res.changed: {{ unarchive_res.changed }}"
+
+- name: Debug | Show spark unarchive_res
+  ansible.builtin.debug:
+    var: unarchive_res.files[0]
+
+# - name: Debug | Show spark archive dir
+#   ansible.builtin.debug:
+#     msg: "{{ spark_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}"
+- name: Debug | Show spark archive dir
+  ansible.builtin.debug:
+    msg: "{{ spark_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+
+- name: "Create link from {{ spark_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }} to current spark distro {{ spark_distro_home }}."
+  ansible.builtin.file:
+    path: "{{ spark_distro_home }}"
+    src: "{{ spark_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+    state: link
+  when: unarchive_res.changed
+
+# 修改链接文件夹的权限/user/group，会直接修改目标文件夹的属性
+- name: "Change owner to {{ spark_user }} and allow group {{ spark_group }} rwx"
+  ansible.builtin.file:
+    path: "{{ spark_distro_home }}"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+    state: directory
+
+

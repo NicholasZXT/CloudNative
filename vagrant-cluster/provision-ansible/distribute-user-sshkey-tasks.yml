@@ -1,0 +1,33 @@
+# 在一个嵌套loop里使用此task: item[0] -> from_node, item[1] -> target_node
+
+# 在 from_node 上获取 user 的公钥，并注册为 pubkey 变量
+- name: "Get the public key of [{{ user }}] user on {{ item[0] }}"
+  shell: "cat /home/{{ user }}/.ssh/id_rsa.pub"
+  become: yes
+  become_user: "{{ user }}"
+  register: pubkey
+  delegate_to: "{{ item[0] }}"
+  run_once: true
+
+# 将该公钥分发到 target_node 上
+- name: "Add [{{ user }}] user public key on {{ item[0] }} => {{ item[1] }}"
+  ansible.posix.authorized_key:
+    user: "{{ user }}"
+    state: present
+    key: "{{ pubkey.stdout }}"
+  become: yes
+  become_user: "{{ user }}"
+  delegate_to: "{{ item[1] }}"
+  run_once: true
+
+
+# ----------- 测试嵌套 loop ---------
+# - name: loop-task-1
+#   tags: test_loop
+#   debug:
+#     msg: "loop-task-1 with {{ item[0] }} => {{ item[1] }}."
+
+# - name: loop-task-2
+#   tags: test_loop
+#   debug:
+#     msg: "loop-task-2 with {{ item[0] }} => {{ item[1] }}."

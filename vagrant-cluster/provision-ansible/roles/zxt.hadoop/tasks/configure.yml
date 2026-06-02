@@ -1,0 +1,80 @@
+---
+- name: Ensure HADOOP_HOME is set in .bashrc
+  become: yes
+  ansible.builtin.lineinfile:
+    path: /home/{{ item }}/.bashrc
+    line: "export HADOOP_HOME={{ hadoop_distro_home }}"
+    state: present
+    create: yes  # 如果文件不存在则创建
+    insertafter: EOF  # 在文件末尾插入
+  loop:
+    - hadoop
+    - hdfs
+    - yarn
+
+- name: Ensure PATH includes HADOOP_HOME/bin in .bashrc
+  ansible.builtin.lineinfile:
+    path: /home/{{ item }}/.bashrc
+    regexp: '^export PATH=\$PATH:\$HADOOP_HOME/bin$'
+    line: 'export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin'
+    state: present
+    insertafter: 'export HADOOP_HOME='  # 确保在HADOOP_HOME之后添加
+  loop:
+    - hadoop
+    - hdfs
+    - yarn
+
+- name: Generate hadoop configuration files
+  template:
+    src: ./templates/{{ item }}
+    dest: "{{ hadoop_distro_home }}/etc/hadoop/{{ item }}"
+    owner: hadoop
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+  loop:
+    - hadoop-env.sh
+    - core-site.xml
+    - hdfs-site.xml
+    - yarn-site.xml
+    - mapred-site.xml
+    - workers
+
+
+- name: Create namenode dir
+  when: ansible_hostname == hadoop_namenode
+  file:
+    path: "{{ hadoop_hdfs_site['dfs.namenode.name.dir'] | default(hadoop_hdfs_site_defaults['dfs.namenode.name.dir']) }}"
+    state: directory
+    owner: hdfs
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+
+- name: Create datanode dir
+  when: ansible_hostname in hadoop_workers
+  file:
+    path: "{{ hadoop_hdfs_site['dfs.datanode.data.dir'] | default(hadoop_hdfs_site_defaults['dfs.datanode.data.dir']) }}"
+    state: directory
+    owner: hdfs
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+
+- name: Create hadoop log dir
+  file:
+    path: "{{ hadoop_distro_home }}/logs"
+    state: directory
+    owner: hadoop
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+
+- name: Create hadoop tmp dir
+  file:
+    path: "{{ hadoop_core_site['hadoop.tmp.dir'] | default(hadoop_core_site_defaults['hadoop.tmp.dir']) }}"
+    state: directory
+    owner: hadoop
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+

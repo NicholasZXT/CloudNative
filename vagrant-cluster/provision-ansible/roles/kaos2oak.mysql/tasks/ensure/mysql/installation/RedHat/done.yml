@@ -1,0 +1,4 @@
+---
+ - name: Ensure RedHat version-specific MySQL installation is done
+   include_tasks: '{{ ansible_facts.distribution_major_version }}/done.yml'
+

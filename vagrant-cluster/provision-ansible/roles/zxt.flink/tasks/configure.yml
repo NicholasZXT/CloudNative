@@ -1,0 +1,11 @@
+---
+- name: Generate flink configuration files
+  template:
+    src: ./templates/{{ item }}
+    dest: "{{ flink_distro_home }}/conf/{{ item }}"
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: u=rwx,g=rwx,o=r
+  loop:
+    - flink-conf.yaml
+

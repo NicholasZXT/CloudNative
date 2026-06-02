@@ -1,0 +1,92 @@
+# 下面三个变量必须要定义
+java_home: unknown
+hadoop_version: unknown
+hadoop_local_tar: unknown
+
+
+# 安装的根目录
+hadoop_target_dir: "/opt/hadoop"
+# 当前使用的hadoop链接目录
+hadoop_distro_home: "{{ hadoop_target_dir }}/current"
+
+# 是否删除已有的target_dir
+delete_target_dir: false
+# 是否重新部署配置项
+reconfig: false
+
+hadoop_cluster_name: my-cluster
+hadoop_namenode: localhost
+hadoop_secondnamenode: localhost
+hadoop_resourcemanager: localhost
+hadoop_historyserver: localhost
+hadoop_workers: 
+  - localhost
+
+hadoop_user_home: {}
+hadoop_user_home_defaults:
+  hdfs: 
+    name: hdfs
+  yarn: 
+    name: yarn
+
+# core-site.xml
+hadoop_core_site: {}
+hadoop_core_site_defaults:
+  # fs.defaultFS: "hdfs://localhost:9000"
+  hadoop.tmp.dir: "{{ hadoop_distro_home }}/tmp"
+  hadoop.http.staticuser.user: "dr.who"
+  io.file.buffer.size: "131072"
+
+# hdfs-site.xml
+hadoop_hdfs_site: {}
+hadoop_hdfs_site_defaults:
+  dfs.replication: "1"
+  dfs.namenode.secondary.http-address: "{{ hadoop_secondnamenode }}:9001"
+  dfs.namenode.name.dir: "{{ hadoop_distro_home }}/data/namenode"
+  dfs.datanode.data.dir: "{{ hadoop_distro_home }}/data/datanode"
+  dfs.blocksize: "134217728"
+  dfs.namenode.handler.count: "100"
+
+# yarn-site.xml
+hadoop_yarn_site: {}
+hadoop_yarn_site_defaults:
+  yarn.resourcemanager.hostname: "{{ hadoop_resourcemanager }}"
+  yarn.nodemanager.aux-services: "mapreduce_shuffle"
+  yarn.nodemanager.resource.memory-mb: 1024
+  yarn.nodemanager.vmem-pmem-ratio: 2.1
+  yarn.nodemanager.local-dirs: "{{ hadoop_distro_home }}/data/nodemanager/local"
+  yarn.nodemanager.log-dirs: "{{ hadoop_distro_home }}/data/nodemanager/logs"
+  yarn.nodemanager.log.retain-seconds: 10800
+  yarn.nodemanager.remote-app-log-dir: "/logs"
+  yarn.nodemanager.remote-app-log-dir-suffix: "logs"
+
+  yarn.log-aggregation-enable: "false" 
+  yarn.log-aggregation.retain-seconds: -1
+  yarn.log-aggregation.retain-check-interval-seconds: -1
+  yarn.log.server.url: "http://{{ hadoop_historyserver }}:19888/jobhistory/logs"
+  yarn.web-proxy.address: "{{ hadoop_resourcemanager }}"
+
+  yarn.acl.enable: "false"
+  yarn.admin.acl: "*"
+  yarn.resourcemanager.scheduler.class: org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler
+  yarn.scheduler.minimum-allocation-mb: 1
+  yarn.scheduler.maximum-allocation-mb: 2048
+  yarn.nodemanager.env-whitelist: JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME
+
+# mapred-site.xml
+hadoop_mapred_site: {}
+hadoop_mapred_site_defaults:
+  mapreduce.framework.name: yarn
+  mapreduce.map.memory.mb: 1536
+  mapreduce.map.java.opts: -Xmx1024M
+  mapreduce.reduce.memory.mb: 3072
+  mapreduce.reduce.java.opts: -Xmx2560M
+  mapreduce.task.io.sort.mb: 512
+  mapreduce.task.io.sort.factor: 100
+  mapreduce.reduce.shuffle.parallelcopies: 50
+
+  mapreduce.jobhistory.address: "{{ hadoop_historyserver }}:10020"
+  mapreduce.jobhistory.webapp.address: "{{ hadoop_historyserver }}:19888"
+  mapreduce.jobhistory.intermediate-done-dir: /mr-history/tmp
+  mapreduce.jobhistory.done-dir: /mr-history/done
+

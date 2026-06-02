@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+# Query Cache options
+
+
+[mysqld]
+query_alloc_block_size          = {{ mysql_query_alloc_block_size }}
+query_cache_limit               = {{ mysql_query_cache_limit }}
+query_cache_min_res_unit        = {{ mysql_query_cache_min_res_unit }}
+query_cache_size                = {{ mysql_query_cache_size }}
+query_cache_strip_comments      = {{ mysql_query_cache_strip_comments }}
+query_cache_type                = {{ mysql_query_cache_type }}
+query_cache_wlock_invalidate    = {{ mysql_query_cache_wlock_invalidate }}
+query_prealloc_size             = {{ mysql_query_prealloc_size }}

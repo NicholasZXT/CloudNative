@@ -1,0 +1,6 @@
+---
+mysql_packages:
+  - mariadb-server
+  - mariadb-server-utils
+  - perl-DBD-MySQL
+  - python3-PyMySQL

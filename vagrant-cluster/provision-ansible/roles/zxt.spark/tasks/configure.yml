@@ -1,0 +1,11 @@
+---
+- name: Generate spark configuration files
+  template:
+    src: ./templates/{{ item }}
+    dest: "{{ spark_distro_home }}/conf/{{ item }}"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_group }}"
+    mode: u=rwx,g=rwx,o=r
+  loop:
+    - spark-env.sh
+

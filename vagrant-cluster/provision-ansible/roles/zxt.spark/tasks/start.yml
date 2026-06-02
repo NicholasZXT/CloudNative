@@ -1,0 +1,7 @@
+---
+- name: Start spark history server
+  shell: "{{ spark_distro_home }}/bin/zkServer.sh start"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  become: yes
+  become_user: "{{ spark_user }}"

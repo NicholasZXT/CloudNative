@@ -1,0 +1,45 @@
+java_home: unknown
+kafka_version: unknown
+kafka_local_tar: unknown
+
+kafka_user: kafka
+kafka_group: kafka
+kafka_target_dir: "/opt/kafka"
+kafka_distro_home: "{{ kafka_target_dir }}/current"
+
+kafka_data_dir: "{{ kafka_distro_home }}/data"
+kafka_log_dir: "{{ kafka_distro_home }}/logs"
+zookeeper_connect: "localhost:2181"
+kafka_workers_id: 
+  localhost: 1
+
+# 是否删除已有的target_dir
+delete_target_dir: false
+# 是否重新部署配置项
+reconfig: false
+
+# server.properties
+kafka_server_config: {}
+kafka_server_config_defaults:
+  # broker.id: 1
+  clientPort: 2181
+  zookeeper.connect: "{{ zookeeper_connect }}"
+  num.network.threads: 3
+  num.io.threads: 8
+  socket.send.buffer.bytes: 102400
+  socket.receive.buffer.bytes: 102400
+  socket.request.max.bytes: 104857600
+  log.dirs: "{{ kafka_data_dir }}"
+  num.partitions: 1
+  num.recovery.threads.per.data.dir: 1
+  offsets.topic.replication.factor: 1
+  transaction.state.log.replication.factor: 1
+  transaction.state.log.min.isr: 1
+  log.flush.interval.messages: 10000
+  log.flush.interval.ms: 1000
+  log.retention.hours: 168
+  log.segment.bytes: 1073741824
+  log.retention.check.interval.ms: 300000
+  zookeeper.connection.timeout.ms: 18000
+  group.initial.rebalance.delay.ms: 0
+

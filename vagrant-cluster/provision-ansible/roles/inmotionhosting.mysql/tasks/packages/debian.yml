@@ -1,0 +1,33 @@
+---
+- name: (Debian) Install required repo management packages
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gpg
+      - software-properties-common
+      - gpg-agent
+    cache_valid_time: "3600"
+    force_apt_get: true
+    state: present
+    update_cache: true
+
+- name: (Debian) Add official MariaDB repo signing key
+  ansible.builtin.apt_key:
+    url: https://mariadb.org/mariadb_release_signing_key.asc
+    state: present
+
+- name: (Debian) Add official MariaDB repo
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64] https://ftp.osuosl.org/pub/mariadb/repo/{{-
+      mysql_version }}/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release.split(" ")[0] | lower }} main
+    state: present
+
+- name: (Debian) Update APT cache
+  ansible.builtin.apt:
+    force_apt_get: true
+    cache_valid_time: "3600"
+    state: present
+    update_cache: true

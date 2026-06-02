@@ -1,0 +1,8 @@
+---
+- name: Stop hbase server
+  shell: "{{ hbase_distro_home }}/bin/stop-hbase.sh"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  become: yes
+  become_user: "{{ hbase_user }}"
+  ignore_errors: true

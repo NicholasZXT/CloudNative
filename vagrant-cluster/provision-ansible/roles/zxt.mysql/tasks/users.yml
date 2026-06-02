@@ -1,0 +1,24 @@
+---
+# - name: Enable mysql_native_password plugin
+#   ansible.builtin.ini_file:
+#     path: "{{ mysql_config_file }}"
+#     section: mysqld
+#     option: mysql_native_password
+#     value: 'ON'
+#     backup: yes
+#   become: yes
+#   notify: restart mysql
+
+
+- name: Ensure MySQL users are present.
+  community.mysql.mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host | default('localhost') }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv | default('*.*:USAGE') }}"
+    state: "{{ item.state | default('present') }}"
+    append_privs: "{{ item.append_privs | default(false) }}"
+    encrypted: "{{ item.encrypted | default(false) }}"
+    column_case_sensitive: "{{ item.case_sensitive | default(false) }}"
+  with_items: "{{ mysql_users }}"
+  no_log: "{{ mysql_hide_passwords }}"

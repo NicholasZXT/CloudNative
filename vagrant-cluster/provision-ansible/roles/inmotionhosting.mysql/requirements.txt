@@ -1,0 +1,7 @@
+# requirements.txt
+
+ansible-lint
+ansible
+molecule-plugins[docker]
+molecule
+pre-commit

@@ -1,0 +1,62 @@
+---
+- name: (Debian) Include os_family vars
+  ansible.builtin.include_vars: debian.yml
+  when: ansible_os_family | lower == "debian"
+
+- name: (RedHat 8+) Include os_family vars
+  ansible.builtin.include_vars: "redhat-8.yml"
+  when:
+    - ansible_os_family | lower == "redhat"
+    - ansible_distribution_major_version >= "8"
+
+- name: (Debian 11+, Ubuntu 20.04+) Drop python 2.x packages
+  ansible.builtin.set_fact:
+    mysql_packages: "{{ mysql_packages | difference(['python-pymysql']) }}"
+  when:
+    - ansible_distribution|lower in ["debian", "ubuntu"]
+    - ansible_distribution_release | lower in ["bullseye", "focal", "bookworm", "jammy"]
+
+- name: Set lists of required variables
+  ansible.builtin.set_fact:
+    mysql_required_strings:
+      - mysql_daemon
+      - mysql_root_home
+      - mysql_root_username
+      - mysql_config_file
+      - mysql_config_include_dir
+      - mysql_socket_path
+      - mysql_log_dir
+      - mysql_log_error
+      - mysql_log_file_group
+      - mysql_slow_query_log_file
+      - mysql_syslog_tag
+
+- name: Check required MySQL variables (strings)
+  ansible.builtin.fail:
+    msg: |
+      Invalid value for variable for '{{ item }}': {{ lookup('vars', item) }}
+
+      Supported types  : String
+      Supported values : Any non-null string
+  when: >-
+    lookup('vars', item) is not string
+    or lookup('vars', item) == 0
+  with_items: "{{ mysql_required_strings }}"
+
+- name: Check variable 'systemd_restart_setting'
+  ansible.builtin.fail:
+    msg: |
+      Invalid value for variable 'systemd_restart_setting': '{{ systemd_restart_setting }}'
+
+      Supported types  : String
+      Supported values : "no", "on-success", "on-failure", "on-abnormal",
+                         "on-watchdog", "on-abort", "always"
+  failed_when: >-
+    systemd_restart_setting not in
+    ['no', 'on-success', 'on-failure', 'on-abnormal',
+    'on-watchdog', 'on-abort', 'always']
+    or systemd_restart_setting is not string
+    or systemd_restart_setting == 0
+  when: >-
+    (mysql_systemd_restart is defined and mysql_systemd_restart | bool)
+    or (systemd_restart is defined and systemd_restart | bool)

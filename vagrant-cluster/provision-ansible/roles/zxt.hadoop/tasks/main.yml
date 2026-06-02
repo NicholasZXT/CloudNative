@@ -1,0 +1,76 @@
+---
+# ----------- 变量检查 ----------
+- name: assert | check java_home
+  ansible.builtin.assert:
+    that: 
+      - java_home is defined
+      - java_home != "unknown"
+    # success_msg: java_home is defined
+    fail_msg: java_home is not defined
+
+- name: assert | check hadoop_version
+  ansible.builtin.assert:
+    that: 
+      - hadoop_version is defined
+      - hadoop_version != "unknown"
+    # success_msg: hadoop_version is defined
+    fail_msg: hadoop_version is not defined
+
+- name: assert | check hadoop_local_tar
+  ansible.builtin.assert:
+    that: 
+      - hadoop_local_tar is defined
+      - hadoop_local_tar != "unknown"
+    # success_msg: hadoop_local_tar is defined
+    fail_msg: hadoop_local_tar is not defined
+
+- name: assert | check delete_target_dir and reconfig
+  ansible.builtin.assert:
+    that: 
+      - not (delete_target_dir|bool and reconfig|bool)
+    fail_msg: >-
+      Assertion failed: Both variables 'delete_target_dir' and 'reconfig' are set to true.
+      This configuration is not allowed. Please ensure that at most one of them is true.
+      Current values: delete_target_dir={{ delete_target_dir }}, reconfig={{ reconfig }}
+
+
+# ------------ 确认安装目录存在以及权限正确 ------------------
+- name: "Remove old target dir [{{ hadoop_target_dir }}]"
+  file:
+    path: "{{ hadoop_target_dir }}"
+    state: absent
+  when: delete_target_dir
+    
+- name: "Ensure target dir [{{ hadoop_target_dir }}] exist"
+  ansible.builtin.file:
+    path: "{{ hadoop_target_dir }}"
+    state: directory
+    owner: hadoop
+    group: hadoop
+    mode: '0775'
+    recurse: yes
+
+
+#  ---------------------------------------------
+# - name: Stop Hadoop
+#   ansible.builtin.include_tasks: stop.yml
+#   when: hadoop_reformat
+
+- name: Install Hadoop
+  ansible.builtin.include_tasks: install.yml
+  when: not reconfig
+
+- name: Configure Hadoop
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Initializing Hadoop namenode
+  ansible.builtin.include_tasks: initialize.yml
+  when: not reconfig
+
+- name: Start Hadoop services
+  ansible.builtin.include_tasks: start.yml
+  when: not reconfig
+
+- name: Configure hadoop users
+  ansible.builtin.include_tasks: configure_users.yml
+  when: not reconfig

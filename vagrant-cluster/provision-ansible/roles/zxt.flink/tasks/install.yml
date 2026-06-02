@@ -1,0 +1,42 @@
+---
+- name: "Unarchive flink tgz to '{{ flink_target_dir }}'"
+  ansible.builtin.unarchive:
+    src: "{{ flink_local_tar }}"
+    dest: "{{ flink_target_dir }}"
+    list_files: yes
+    creates: "{{ flink_target_dir }}/apache-flink-{{ flink_version }}-bin/bin/zkServer.sh"
+  register: unarchive_res
+
+
+- name: Debug | Show unarchive result
+  debug:
+    msg: "unarchive_res.failed: {{ unarchive_res.failed }}, unarchive_res.changed: {{ unarchive_res.changed }}"
+
+- name: Debug | Show flink unarchive_res
+  ansible.builtin.debug:
+    var: unarchive_res.files[0]
+
+# - name: Debug | Show flink archive dir
+#   ansible.builtin.debug:
+#     msg: "{{ flink_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}"
+- name: Debug | Show flink archive dir
+  ansible.builtin.debug:
+    msg: "{{ flink_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+
+- name: "Create link from {{ flink_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }} to current flink distro {{ flink_distro_home }}."
+  ansible.builtin.file:
+    path: "{{ flink_distro_home }}"
+    src: "{{ flink_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+    state: link
+  when: unarchive_res.changed
+
+# 修改链接文件夹的权限/user/group，会直接修改目标文件夹的属性
+- name: "Change owner to {{ flink_user }} and allow group {{ flink_group }} rwx"
+  ansible.builtin.file:
+    path: "{{ flink_distro_home }}"
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+    state: directory
+

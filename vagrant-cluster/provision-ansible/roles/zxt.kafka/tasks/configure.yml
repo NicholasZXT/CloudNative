@@ -1,0 +1,43 @@
+---
+- name: Generate kafka configuration files
+  template:
+    src: ./templates/server.properties
+    dest: "{{ kafka_distro_home }}/config/server.properties"
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: u=rwx,g=rwx,o=r
+  vars:
+    broker_id: "{{ kafka_workers_id[ansible_hostname] | default(0) }}"
+
+- name: Remove kafka data dir
+  when: 
+    - kafka_reformat
+  file:
+    path: "{{ kafka_data_dir }}"
+    state: absent
+
+- name: Create kafka data dir
+  file:
+    path: "{{ kafka_data_dir }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+
+- name: Remove kafka log dir
+  when: 
+    - kafka_reformat
+  file:
+    path: "{{ kafka_log_dir }}"
+    state: absent
+
+- name: Create kafka log dir
+  file:
+    path: "{{ kafka_log_dir }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+

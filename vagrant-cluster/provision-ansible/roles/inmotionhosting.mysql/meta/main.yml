@@ -1,0 +1,31 @@
+---
+galaxy_info:
+  role_name: mysql
+  author: inmotionhosting
+  description: Modular Ansible Role for deploying and configuring MySQL/MariaDB
+  company: InMotion Hosting
+  license: GPLv3
+  min_ansible_version: "2.13"
+
+  platforms:
+    - name: EL
+      versions:
+        - "7"
+        - "8"
+        - "9"
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+
+  galaxy_tags:
+    - database
+    - mariadb
+    - mysql
+    - web
+
+dependencies: []

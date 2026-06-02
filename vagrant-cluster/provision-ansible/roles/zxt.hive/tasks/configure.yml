@@ -1,0 +1,46 @@
+---
+- name: Generate hive configuration files
+  ansible.builtin.template:
+    src: "./templates/{{ item }}"
+    dest: "{{ hive_distro_home }}/conf/{{ item }}"
+    owner: "{{ hive_user }}"
+    group: "{{ hive_group }}"
+    mode: u=rwx,g=rwx,o=r
+  loop:
+    - hive-site.xml
+    - hive-env.sh
+    - hive-log4j2.properties
+
+- name: Copy MySQL jdbc driver
+  ansible.builtin.copy:
+    src: "{{ mysql_driver_jar }}"
+    dest: "{{ hive_distro_home }}/lib"
+    owner: "{{ hive_user }}"
+    group: "{{ hive_group }}"
+    mode: u=rwx,g=rwx,o=r
+
+- name: "Ensure log dir [{{ hive_log_dir }}] exist"
+  ansible.builtin.file:
+    path: "{{ hive_log_dir }}"
+    state: directory
+    owner: "{{ hive_user }}"
+    group: "{{ hive_group }}"
+    mode: '0755'
+    recurse: yes
+
+
+# 手动初始化：
+# sudo -u hive /opt/hive/current/bin/schematool -initSchema -dbType mysql
+# - name: Run schematool to init metastore
+#   become: yes
+#   become_user: "{{ hive_user }}"
+#   ansible.builtin.shell: "{{ hive_distro_home }}/bin/schematool -initSchema -dbType mysql"
+#   environment:
+#     HIVE_HOME: "{{ hive_distro_home }}"
+#   args:
+#     chdir: "{{ hive_distro_home }}"
+#   register: init_res
+
+# - name: Debug | Show hive init res
+#   debug:
+#     var: init_res.stderr_lines

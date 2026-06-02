@@ -1,0 +1,30 @@
+---
+- name: Generate hbase configuration files
+  template:
+    src: ./templates/{{ item }}
+    dest: "{{ hbase_distro_home }}/conf/{{ item }}"
+    owner: "{{ hbase_user }}"
+    group: "{{ hbase_group }}"
+    mode: u=rwx,g=rwx,o=r
+  loop:
+    - hbase-env.sh
+    - hbase-site.xml
+    - regionservers
+
+
+# - name: Remove hbase log dir
+#   when: 
+#     - hbase_reformat
+#   file:
+#     path: "{{ hbase_log_dir }}"
+#     state: absent
+
+# - name: Create hbase log dir
+#   file:
+#     path: "{{ hbase_log_dir }}"
+#     state: directory
+#     owner: "{{ hbase_user }}"
+#     group: "{{ hbase_group }}"
+#     mode: u=rwx,g=rwx,o=r
+#     recurse: yes
+

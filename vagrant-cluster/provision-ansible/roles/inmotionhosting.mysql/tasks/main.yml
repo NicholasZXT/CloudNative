@@ -1,0 +1,30 @@
+---
+- name: Include variables and set facts
+  ansible.builtin.include_tasks: facts.yml
+
+- name: Add official MySQL/MariaDB repositories
+  ansible.builtin.include_tasks: "packages/{{ ansible_os_family | lower }}.yml"
+
+- name: Install MySQL/MariaDB packages.
+  ansible.builtin.package:
+    name: "{{ mysql_packages }}"
+    state: present
+  register: mysql_install_packages
+
+- name: Configure MySQL/MariaDB
+  ansible.builtin.include_tasks: configure.yml
+
+- name: Start and enable MySQL/MariaDB service
+  ansible.builtin.service:
+    name: "{{ mysql_daemon }}"
+    state: started
+    enabled: true
+
+- name: Secure MySQL/MariaDB
+  ansible.builtin.include_tasks: security.yml
+
+- name: Include systemd restart configuration
+  ansible.builtin.include_tasks: systemd.yml
+  when:
+    - mysql_systemd_restart | default(false) or systemd_restart | default(false)
+    - systemd_restart_setting is defined

@@ -1,0 +1,3 @@
+{% for worker, worker_id in hbase_workders.items() %}
+worker
+{% endfor %}

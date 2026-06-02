@@ -1,0 +1,276 @@
+---
+- name: Generate Ubuntu OpenSSH Key
+  tags: ubuntu_ssh_key
+  hosts: ubuntu
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: "Hostname is [{{ ansible_hostname }}] with IP [{{ ansible_default_ipv4 }}]"
+    - name: Generate OpenSSH key on ubuntu
+      community.crypto.openssh_keypair:
+        path: ~/.ssh/id_ssh_rsa_hadoop
+        type: rsa
+        size: 2048
+        comment: vagrant@hadoop123
+        force: true
+
+# ***************************************************************
+- name: Distributing Ubuntu SSH public key
+  tags: ubuntu_ssh_key
+  hosts: hadoop_nodes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: "Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}]"
+    - name: Distributing Ubuntu SSH public key to Hadoop-Nodes
+      ansible.posix.authorized_key:
+        user: vagrant
+        state: present
+        key: "{{ lookup('file', '/home/vagrant/.ssh/id_ssh_rsa_hadoop.pub') }}"
+
+
+# ***************************************************************
+- name: Disable swap on all hadoop-nodes
+  tags: swap_off
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+  - name: Disable swap on all nodes
+    ansible.builtin.include_role:
+      name: geerlingguy.swap
+    vars:
+      swap_file_state: absent
+
+
+# ***************************************************************
+- name: Modifying /etc/hosts
+  tags: hosts
+  hosts: hadoop_nodes
+  tasks:
+  - name: Comment out lines containing 127.0.1.1 in /etc/hosts
+    ansible.builtin.lineinfile:
+      path: /etc/hosts
+      # search_string: '127.0.1.1'  # 匹配不以#开头且包含127.0.1.1的行
+      regexp: '(127\.0\.1\.1.*)$'  # 匹配不以#开头且包含127.0.1.1的行
+      line: '# \1'
+      # line: 'dasfsafas'
+      backrefs: yes
+      state: present
+    become: yes
+    register: comment_res
+    # ignore_errors: True
+  # - name: Debug comment result
+  #   debug:
+  #     var: comment_res
+
+
+# ***************************************************************
+- name: Create hadoop users and group on all hadoop-nodes
+  tags: hadoop_user
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+  # 创建hadoop用户组
+  - name: Ensure hadoop group exists
+    ansible.builtin.group:
+      name: hadoop
+      state: present
+  # 将 vagrant 用户加入到 hadoop用户组中
+  - name: Ensure user is added to the specified group
+    ansible.builtin.user:
+      name: vagrant
+      groups: hadoop
+      append: yes
+
+  # 不是在执行节点的Python环境安装passlib，而是需要在控制节点安装，因为为下面的用户设置密码时需要做hash处理
+  # - name: Install passlib using pip3
+  #   pip:
+  #     name: passlib
+  #     state: present
+  #     executable: /usr/local/bin/pip3
+  #     extra_args: "-i https://pypi.tuna.tsinghua.edu.cn/simple"
+
+  # ----- hadoop 用户 -----
+  - name: Create [hadoop] user with home directory
+    ansible.builtin.user:
+      name: hadoop
+      group: hadoop
+      state: present
+      createhome: yes # 自动创建主目录
+      shell: /bin/bash # 设置默认shell
+      home: /home/hadoop # 可选：明确指定主目录路径
+      # 下面的密码使用了过滤器，引入了 passlib 包中的函数 password_hash，
+      # 特别要注意的是，需要在 ansbile 控制节点的Python环境里安装 passlib，而不是执行节点上安装
+      password: "{{ 'hadoop2025' | password_hash('sha512') }}"
+  # 主要是更改 /home/hadoop 用户目录的mode
+  - name: Ensure [hadoop] home directory exists for [hadoop] user and check mode
+    ansible.builtin.file:
+      path: /home/hadoop
+      state: directory
+      # recurse: true
+      mode: '755'
+      owner: hadoop
+      group: hadoop
+    become: yes
+    become_user: hadoop
+
+  # ----- hdfs 用户 -----
+  - name: Create [hdfs] user with home directory
+    ansible.builtin.user:
+      name: hdfs
+      group: hadoop
+      state: present
+      createhome: yes # 自动创建主目录
+      shell: /bin/bash # 设置默认shell
+      home: /home/hdfs # 可选：明确指定主目录路径
+      password: "{{ 'hadoop2025' | password_hash('sha512') }}"
+  - name: Ensure [hdfs] home directory exists for [hdfs] user and check mode
+    ansible.builtin.file:
+      path: /home/hdfs
+      state: directory
+      # recurse: true
+      mode: '755'
+      owner: hdfs
+      group: hadoop
+    become: yes
+    become_user: hdfs
+
+  # ----- yarn 用户 -----
+  - name: Create [yarn] user with home directory
+    ansible.builtin.user:
+      name: yarn
+      group: hadoop
+      state: present
+      createhome: yes # 自动创建主目录
+      shell: /bin/bash # 设置默认shell
+      home: /home/yarn # 可选：明确指定主目录路径
+      password: "{{ 'hadoop2025' | password_hash('sha512') }}"
+  - name: Ensure [yarn] home directory exists for [yarn] user and check mode
+    ansible.builtin.file:
+      path: /home/yarn
+      state: directory
+      # recurse: true
+      mode: '755'
+      owner: yarn
+      group: hadoop
+    become: yes
+    become_user: yarn
+
+
+# ***************************************************************
+# 测试嵌套循环，为分发公钥做调试
+# - name: Test loop usage
+#   tags: test_loop
+#   hosts: ubuntu
+#   vars:
+#     directories: ["/tmp/dir1", "/tmp/dir2"]
+#     filenames: ["fileA.txt", "fileB.txt"]
+#   tasks: 
+#   - name: test nested loop
+#     debug:
+#       msg: "Loop Nested Info: {{ item[0] }} => {{ item[1] }}."
+#     loop: "{{ directories | product(filenames) | list }}"
+  # 下面这种 block + 嵌套 loop 行不通
+  # - name: test nested loop with block
+  #   block:
+  #     - name: loop-task-1
+  #       debug:
+  #         msg: "loop-task-1 with {{ item[0] }} => {{ item[1] }}."
+  #     - name: loop-task-2
+  #       debug:
+  #         msg: "loop-task-2 with {{ item[0] }}-{{ item[1] }}."
+  #   loop: "{{ directories | product(filenames) | list }}"
+  # include_tasks + 嵌套loop可以，注意，不能用 import_tasks 
+  # 可惜的是，不能控制 loop 里变量的名称，只能是 item
+  # - name: test nested loop with include_task
+  #   include_tasks: ./distribute-user-sshkey.yml
+  #   loop: "{{ directories | product(filenames) | list }}"
+
+
+
+# ***************************************************************
+- name: Create and configure hadoop users ssh-key login on all hadoop-nodes
+  tags: hadoop_sshkey
+  hosts: hadoop_nodes
+  vars:
+    nodes: ["hadoop1", "hadoop2", "hadoop3"]
+  tasks: 
+  # ===========================================================
+  # --- 在每个节点上为 hadoop/hdfs/yarn 用户生成 SSH-Key ---
+  - name: Ensure .ssh directory exists for [hadoop] user
+    file:
+      path: /home/hadoop/.ssh
+      state: directory
+      # recurse: true
+      mode: '0700'
+      owner: hadoop
+      group: hadoop
+    become: yes
+    become_user: hadoop
+  - name: Generate SSH keypair for [hadoop] user if not exists
+    community.crypto.openssh_keypair:
+      path: /home/hadoop/.ssh/id_rsa
+      type: rsa
+      size: 2048
+      force: true
+    become: yes
+    become_user: hadoop
+
+  - name: Ensure .ssh directory exists for [hdfs] user
+    file:
+      path: /home/hdfs/.ssh
+      state: directory
+      # recurse: true
+      mode: '0700'
+      owner: hdfs
+      group: hadoop
+    become: yes
+    become_user: hdfs
+  - name: Generate SSH keypair for [hdfs] user if not exists
+    community.crypto.openssh_keypair:
+      path: /home/hdfs/.ssh/id_rsa
+      type: rsa
+      size: 2048
+      force: true
+    become: yes
+    become_user: hdfs
+
+  - name: Ensure .ssh directory exists for [yarn] user
+    file:
+      path: /home/yarn/.ssh
+      state: directory
+      # recurse: true
+      mode: '0700'
+      owner: yarn
+      group: hadoop
+    become: yes
+    become_user: yarn
+  - name: Generate SSH keypair for [yarn] user if not exists
+    community.crypto.openssh_keypair:
+      path: /home/yarn/.ssh/id_rsa
+      type: rsa
+      size: 2048
+      force: true
+    become: yes
+    become_user: yarn
+
+  # ===========================================================
+  # --- 分发 hadoop/hdfs/yarn 用户的 SSH-key ---
+  - name: Distribute SSH-Key for user [hadoop]
+    include_tasks: ./distribute-user-sshkey-tasks.yml
+    vars:
+      user: hadoop
+    # 嵌套循环
+    loop: "{{ nodes | product(nodes) | list }}"
+    
+  - name: Distribute SSH-Key for user [hdfs]
+    include_tasks: ./distribute-user-sshkey-tasks.yml
+    vars:
+      user: hdfs
+    loop: "{{ nodes | product(nodes) | list }}"
+
+  - name: Distribute SSH-Key for user [yarn]
+    include_tasks: ./distribute-user-sshkey-tasks.yml
+    vars:
+      user: yarn
+    loop: "{{ nodes | product(nodes) | list }}"

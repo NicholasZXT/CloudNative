@@ -1,0 +1,51 @@
+---
+# - name: Stop namenode
+#   when: ansible_hostname == hadoop_namenode
+#   shell: "nohup {{ hadoop_distro_home }}/bin/hdfs --daemon stop namenode &"
+#   become: yes
+#   become_user: hdfs
+#   ignore_errors: true
+
+# - name: Stop datanodes
+#   when: ansible_hostname in hadoop_workers
+#   shell: "nohup {{ hadoop_distro_home }}/bin/hdfs --daemon stop datanode &"
+#   become: yes
+#   become_user: hdfs
+#   ignore_errors: true
+
+- name: Stop HDFS services
+  when: ansible_hostname == hadoop_namenode
+  shell: "{{ hadoop_distro_home }}/sbin/stop-dfs.sh"
+  become: yes
+  become_user: hdfs
+  ignore_errors: true
+
+
+# - name: Stop resourcemanager
+#   when: ansible_hostname == hadoop_resourcemanager
+#   shell: "nohup {{ hadoop_distro_home }}/bin/yarn --daemon stop resourcemanager &"
+#   become: yes
+#   become_user: yarn
+#   ignore_errors: true
+
+# - name: Stop nodemanager
+#   when: ansible_hostname in hadoop_workers
+#   shell: "nohup {{ hadoop_distro_home }}/bin/yarn --daemon stop nodemanager &"
+#   become: yes
+#   become_user: yarn
+#   ignore_errors: true
+
+- name: Stop YARN services
+  when: ansible_hostname == hadoop_resourcemanager
+  shell: "{{ hadoop_distro_home }}/sbin/stop-yarn.sh"
+  become: yes
+  become_user: yarn
+  ignore_errors: true
+
+
+- name: Stop YARN HistoryServer
+  when: ansible_hostname == hadoop_historyserver
+  shell: "{{ hadoop_distro_home }}/sbin/mr-jobhistory-daemon.sh stop historyserver"
+  become: yes
+  become_user: yarn
+  ignore_errors: true

@@ -1,0 +1,66 @@
+---
+mysql_version: "10.6"
+mysql_version_flat: '{{ php_version | replace(".", "") }}'
+
+mysql_daemon: mariadb
+mysql_supports_innodb_large_prefix: true
+
+mysql_root_home: /root
+mysql_root_password_update: false
+mysql_root_username: root
+
+mysql_config_file: /etc/my.cnf
+mysql_config_include_dir: /etc/my.cnf.d
+
+mysql_socket: true
+mysql_socket_path: /var/lib/mysql/mysql.sock
+
+mysql_systemd_restart: false
+systemd_restart_setting: on-failure
+
+#
+# Logging
+#
+
+mysql_log_dir: /var/lib/mysql
+mysql_log_error: "{{ mysql_log_dir }}/{{ ansible_fqdn }}.err"
+mysql_log_file_group: mysql
+mysql_log_warning: 1
+mysql_slow_query_log_enabled: true
+mysql_slow_query_log_file: "{{ mysql_log_dir }}/mysql-slow.log"
+mysql_syslog_tag: mariadb
+
+#
+# Packages
+#
+
+mysql_packages:
+  - mariadb-server
+  - MySQL-python
+  - perl-DBD-MySQL
+
+#
+# Meta
+#
+
+password_generate: "{{ lookup('password', '/dev/null length=15 chars=ascii_letters') }}"
+
+#
+# InnoDB Variables
+#
+mysql_innodb_buffer_pool_size: 128M
+mysql_innodb_file_per_table: 1
+mysql_innodb_log_buffer_size: 16M
+mysql_innodb_log_file_size: 96M
+
+#
+# Query Cache Variables
+#
+mysql_query_alloc_block_size: 16384
+mysql_query_cache_limit: 1M
+mysql_query_cache_min_res_unit: 4096
+mysql_query_cache_size: 16M
+mysql_query_cache_strip_comments: 0
+mysql_query_cache_type: 1
+mysql_query_cache_wlock_invalidate: 0
+mysql_query_prealloc_size: 24576

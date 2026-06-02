@@ -1,0 +1,21 @@
+---
+- name: restart redis
+  service: "name={{ redis_daemon }} state=restarted"
+
+- name: Reload systemd daemon and restart redis
+  # 当服务文件被创建或修改后，重新加载 systemd 并重启 Redis 服务
+  block:
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable redis service on boot
+      systemd:
+        name: redis
+        enabled: yes
+
+    - name: Start (or restart) redis service
+      systemd:
+        name: redis
+        state: started
+        daemon_reload: yes  # 确保在启动前已重载

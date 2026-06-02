@@ -1,0 +1,86 @@
+---
+# ----------- 变量检查 -------------
+- name: assert | check java_home
+  ansible.builtin.assert:
+    that: 
+      - java_home is defined
+      - java_home != "unknown"
+    # success_msg: java_home is defined
+    fail_msg: java_home is not defined
+
+- name: assert | check kafka_version
+  ansible.builtin.assert:
+    that: 
+      - kafka_version is defined
+      - kafka_version != "unknown"
+    # success_msg: kafka_version is defined
+    fail_msg: kafka_version is not defined
+
+- name: assert | check kafka_local_tar
+  ansible.builtin.assert:
+    that: 
+      - kafka_local_tar is defined
+      - kafka_local_tar != "unknown"
+    # success_msg: kafka_local_tar is defined
+    fail_msg: kafka_local_tar is not defined
+
+- name: assert | check delete_target_dir and reconfig
+  ansible.builtin.assert:
+    that: 
+      - not (delete_target_dir|bool and reconfig|bool)
+    fail_msg: >-
+      Assertion failed: Both variables 'delete_target_dir' and 'reconfig' are set to true.
+      This configuration is not allowed. Please ensure that at most one of them is true.
+      Current values: delete_target_dir={{ delete_target_dir }}, reconfig={{ reconfig }}
+
+
+# ------------ 确认服务用户/用户组存在 ------------------
+- name: "Ensure kafka group[{{ kafka_group }}] exists"
+  ansible.builtin.group:
+    name: "{{ kafka_group }}"
+    state: present
+
+- name: "Ensure kafka user[{{ kafka_group }}] exist"
+  user:
+    name: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    system: yes
+    create_home: no
+    shell: /sbin/nologin
+
+# ------------ 确认安装目录存在以及权限正确 ------------------
+- name: "Remove old target dir [{{ kafka_target_dir }}]"
+  file:
+    path: "{{ kafka_target_dir }}"
+    state: absent
+  when: delete_target_dir
+
+- name: "Ensure target dir [{{ kafka_target_dir }}] exist"
+  ansible.builtin.file:
+    path: "{{ kafka_target_dir }}"
+    state: directory
+    owner: "{{ kafka_user }}"
+    group: "{{ kafka_group }}"
+    mode: '0755'
+    recurse: yes
+
+
+# -------------------------------------------
+# - name: Stop Kafka
+#   ansible.builtin.include_tasks: stop.yml
+#   when: kafka_reformat
+
+- name: Install Kafka
+  ansible.builtin.include_tasks: install.yml
+  when: not reconfig
+
+- name: Configure Kafka
+  ansible.builtin.include_tasks: configure.yml
+
+# 这个启动不太好使，因为启动脚本会立即返回，即使未启动成功
+- name: Start Kafka services
+  ansible.builtin.include_tasks: start.yml
+  when: not reconfig
+# 手动起服务：
+# sudo -u kafka /opt/kafka/current/bin/kafka-server-start.sh /opt/kafka/current/config/server.properties
+# sudo -u kafka /opt/kafka/current/bin/kafka-server-start.sh -daemon /opt/kafka/current/config/server.properties

@@ -1,0 +1,62 @@
+---
+- name: Check if /root/.my.cnf exists
+  ansible.builtin.stat:
+    path: "{{ mysql_root_home }}/.my.cnf"
+  changed_when: false
+  register: mysql_root_my_cnf
+
+- name: Generate MySQL password
+  ansible.builtin.set_fact:
+    mysql_root_password: "{{ password_generate }}"
+  when: >-
+    mysql_root_password is undefined
+
+- name: Update root MySQL password
+  community.mysql.mysql_user:
+    name: "{{ mysql_root_username }}"
+    login_unix_socket: "{{ mysql_socket_path }}"
+    password: "{{ mysql_root_password }}"
+    update_password: always
+  when: >-
+    mysql_install_packages.changed
+    or not mysql_root_my_cnf.stat.exists
+    or mysql_root_password_update
+
+- name: Copy .my.cnf file with root password credentials
+  ansible.builtin.template:
+    src: root/my.cnf.j2
+    dest: "{{ mysql_root_home }}/.my.cnf"
+    owner: root
+    group: root
+    mode: "0600"
+  when: >-
+    mysql_install_packages.changed
+    or not mysql_root_my_cnf.stat.exists
+    or mysql_root_password_update
+
+- name: Restrict root user to localhost
+  community.mysql.mysql_user:
+    name: "{{ mysql_root_username }}"
+    host: localhost
+    login_unix_socket: "{{ mysql_socket_path }}"
+
+- name: Remove all anonymous MySQL users.
+  community.mysql.mysql_user:
+    name: ""
+    host_all: true
+    login_unix_socket: "{{ mysql_socket_path }}"
+    state: absent
+
+- name: Remove MySQL test database
+  community.mysql.mysql_db:
+    name: "test"
+    login_unix_socket: "{{ mysql_socket_path }}"
+    state: absent
+
+- name: Disallow root login remotely
+  ansible.builtin.command: >-
+    mysql -NBe
+    "DELETE FROM mysql.user
+    WHERE User='{{ mysql_root_username }}'
+    AND Host NOT IN ('localhost');"
+  changed_when: false

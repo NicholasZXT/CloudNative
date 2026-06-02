@@ -1,0 +1,44 @@
+---
+- name: "Unarchive hbase tgz to '{{ hbase_target_dir }}'"
+  ansible.builtin.unarchive:
+    src: "{{ hbase_local_tar }}"
+    dest: "{{ hbase_target_dir }}"
+    list_files: yes
+    creates: "{{ hbase_target_dir }}/apache-hbase-{{ hbase_version }}-bin/bin/zkServer.sh"
+  register: unarchive_res
+
+
+- name: Debug | Show unarchive result
+  debug:
+    msg: "unarchive_res.failed: {{ unarchive_res.failed }}, unarchive_res.changed: {{ unarchive_res.changed }}"
+
+- name: Debug | Show hbase unarchive_res
+  ansible.builtin.debug:
+    var: unarchive_res.files[0]
+
+# - name: Debug | Show hbase archive dir
+#   ansible.builtin.debug:
+#     msg: "{{ hbase_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}"
+- name: Debug | Show hbase archive dir
+  ansible.builtin.debug:
+    msg: "{{ hbase_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+
+
+- name: "Create link from {{ hbase_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }} to current hbase distro {{ hbase_distro_home }}."
+  ansible.builtin.file:
+    path: "{{ hbase_distro_home }}"
+    src: "{{ hbase_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+    state: link
+  when: unarchive_res.changed
+
+# 修改链接文件夹的权限/user/group，会直接修改目标文件夹的属性
+- name: "Change owner to {{ hbase_user }} and allow group {{ hbase_group }} rwx"
+  ansible.builtin.file:
+    path: "{{ hbase_distro_home }}"
+    owner: "{{ hbase_user }}"
+    group: "{{ hbase_group }}"
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+    state: directory
+
+

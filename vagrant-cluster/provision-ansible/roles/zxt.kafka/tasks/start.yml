@@ -1,0 +1,13 @@
+---
+- name: Start kafka server
+  shell: "{{ kafka_distro_home }}/bin/kafka-server-start.sh -daemon {{ kafka_distro_home }}/config/server.properties"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+    # 设置kafka服务日志路径
+    LOG_DIR: "{{ kafka_log_dir }}"
+  become: yes
+  become_user: "{{ kafka_user }}"
+
+# 手动起服务：
+# sudo -u kafka /opt/kafka/current/bin/kafka-server-start.sh /opt/kafka/current/config/server.properties
+# sudo -u kafka /opt/kafka/current/bin/kafka-server-start.sh -daemon /opt/kafka/current/config/server.properties

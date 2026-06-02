@@ -1,0 +1,111 @@
+---
+# ---------- 变量检查 ---------
+- name: assert | check java_home
+  ansible.builtin.assert:
+    that: 
+      - java_home is defined
+      - java_home != "unknown"
+    # success_msg: java_home is defined
+    fail_msg: java_home is not defined
+
+- name: assert | check hive_version
+  ansible.builtin.assert:
+    that: 
+      - hive_version is defined
+      - hive_version != "unknown"
+    # success_msg: hive_version is defined
+    fail_msg: hive_version is not defined
+
+- name: assert | check hive_local_tar
+  ansible.builtin.assert:
+    that: 
+      - hive_local_tar is defined
+      - hive_local_tar != "unknown"
+    # success_msg: hive_local_tar is defined
+    fail_msg: hive_local_tar is not defined
+
+- name: assert | check delete_target_dir and reconfig
+  ansible.builtin.assert:
+    that: 
+      - not (delete_target_dir|bool and reconfig|bool)
+    fail_msg: >-
+      Assertion failed: Both variables 'delete_target_dir' and 'reconfig' are set to true.
+      This configuration is not allowed. Please ensure that at most one of them is true.
+      Current values: delete_target_dir={{ delete_target_dir }}, reconfig={{ reconfig }}
+
+
+- name: assert | check mysql_driver_jar
+  ansible.builtin.assert:
+    that: 
+      - mysql_driver_jar is defined
+      - mysql_driver_jar != "unknown"
+    fail_msg: mysql_driver_jar is not defined
+
+- name: assert | check mysql_conn_url
+  ansible.builtin.assert:
+    that: 
+      - mysql_conn_url is defined
+      - mysql_conn_url != "unknown"
+    fail_msg: mysql_conn_url is not defined
+
+
+- name: assert | check mysql_user
+  ansible.builtin.assert:
+    that: 
+      - mysql_user is defined
+      - mysql_user != "unknown"
+    fail_msg: mysql_user is not defined
+
+- name: assert | check mysql_passwd
+  ansible.builtin.assert:
+    that: 
+      - mysql_passwd is defined
+      - mysql_passwd != "unknown"
+    fail_msg: mysql_passwd is not defined
+
+
+# ------------ 确认服务用户/用户组存在 ------------------
+- name: "Ensure hive group[{{ hive_group }}] exists"
+  ansible.builtin.group:
+    name: "{{ hive_group }}"
+    state: present
+
+- name: "Ensure hive user[{{ hive_user }}] exist"
+  ansible.builtin.user:
+    name: "{{ hive_user }}"
+    group: "{{ hive_group }}"
+    system: yes
+    create_home: no
+    shell: /sbin/nologin
+
+# ------------ 确认安装目录存在以及权限正确 ------------------
+- name: "Remove old target dir [{{ hive_target_dir }}]"
+  file:
+    path: "{{ hive_target_dir }}"
+    state: absent
+  when: delete_target_dir
+
+- name: "Ensure target dir [{{ hive_target_dir }}] exist"
+  ansible.builtin.file:
+    path: "{{ hive_target_dir }}"
+    state: directory
+    owner: "{{ hive_user }}"
+    group: "{{ hive_group }}"
+    mode: '0755'
+    recurse: yes
+
+# -------------------
+# - name: Stop hive
+#   ansible.builtin.include_tasks: stop.yml
+
+- name: Install hive
+  ansible.builtin.include_tasks: install.yml
+  when: not reconfig
+
+- name: Configure hive
+  ansible.builtin.include_tasks: configure.yml
+
+# - name: Start hive services
+#   ansible.builtin.include_tasks: start.yml
+# 手动启动hive服务：
+# sudo -u hive /opt/hive/current/bin/schematool -initSchema -dbType mysql

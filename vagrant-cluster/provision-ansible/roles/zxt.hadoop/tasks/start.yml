@@ -1,0 +1,82 @@
+---
+# - name: Start namenode
+#   when: ansible_hostname == hadoop_namenode
+#   shell: "nohup {{ hadoop_distro_home }}/bin/hdfs --daemon start namenode &"
+#   become: yes
+#   become_user: hdfs
+
+# - name: Start datanodes
+#   when: ansible_hostname in hadoop_workers
+#   shell: "nohup {{ hadoop_distro_home }}/bin/hdfs --daemon start datanode &"
+#   become: yes
+#   become_user: hdfs
+
+# 直接使用这个，在配置正确时，可以同时启动 namenode + datanode
+- name: Start HDFS services
+  when: ansible_hostname == hadoop_namenode
+  shell: "{{ hadoop_distro_home }}/sbin/start-dfs.sh"
+  become: yes
+  become_user: hdfs
+  register: hdfs_start_res
+
+- name: Start HDFS Result
+  when: ansible_hostname == hadoop_namenode
+  debug:
+    var: hdfs_start_res.stderr_lines
+
+# - name: Start resourcemanager
+#   when: ansible_hostname == hadoop_resourcemanager
+#   # shell: "nohup {{ hadoop_distro_home }}/bin/yarn --daemon start resourcemanager &"
+#   shell: "{{ hadoop_distro_home }}/bin/yarn --daemon start resourcemanager &"
+#   become: yes
+#   become_user: yarn
+
+# - name: Start nodemanager
+#   when: ansible_hostname in hadoop_workers
+#   shell: "nohup {{ hadoop_distro_home }}/bin/yarn --daemon start nodemanager &"
+#   become: yes
+#   become_user: yarn
+
+# 直接使用这个，在配置正确时，可以同时启动 resourcemanager + nodemanager
+- name: Start YARN services
+  when: ansible_hostname == hadoop_resourcemanager
+  shell: "{{ hadoop_distro_home }}/sbin/start-yarn.sh"
+  become: yes
+  become_user: yarn
+  register: yarn_start_res
+
+- name: Start YARN Result
+  when: ansible_hostname == hadoop_resourcemanager
+  debug:
+    var: yarn_start_res.stderr_lines
+
+
+# ------ 启动历史服务器之前，需要创建如下两个文件夹
+- name: Merge hadoop_mapred_site dictionary
+  set_fact:
+    hadoop_mapred_site_merged: "{{ hadoop_mapred_site | combine(hadoop_mapred_site_defaults) }}"
+
+- name: Create YARN HistoryServer done directory
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p {{ hadoop_mapred_site_merged['mapreduce.jobhistory.done-dir'] }}"
+
+- name: Create YARN HistoryServer tmp directory
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p {{ hadoop_mapred_site_merged['mapreduce.jobhistory.intermediate-done-dir'] }}"
+
+- name: Start YARN HistoryServer
+  when: ansible_hostname == hadoop_historyserver
+  # shell: "{{ hadoop_distro_home }}/sbin/mr-jobhistory-daemon.sh start historyserver"  # 旧版启动方式
+  shell: "nohpup {{ hadoop_distro_home }}/bin/mapred  --daemon historyserver start"
+  become: yes
+  become_user: yarn
+  register: yarn_history_res
+
+- name: Start YARN HistoryServer Result
+  when: ansible_hostname == hadoop_historyserver
+  debug:
+    var: yarn_history_res.stderr_lines

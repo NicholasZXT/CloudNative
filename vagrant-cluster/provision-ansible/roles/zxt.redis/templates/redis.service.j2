@@ -1,0 +1,33 @@
+[Unit]
+Description=Redis In-Memory Data Store
+After=network.target
+
+[Service]
+User={{ redis_user }}
+Group={{ redis_group }}
+Type=forking
+
+# 启动命令：指向你的 redis-server 和配置文件
+# ExecStart={{ redis_server_path }} {{ redis_conf_path }} --daemonize no
+ExecStart={{ redis_server_path }} {{ redis_conf_path }}
+
+# 停止命令：使用 redis-cli 发送 shutdown
+ExecStop={{ redis_cli_path }} -p {{ redis_port }} shutdown
+
+# 重启信号
+# ExecReload=/bin/kill -USR2 $MAINPID
+
+# 让 systemd 自动创建 /run/redis 目录
+RuntimeDirectory=redis
+RuntimeDirectoryMode=0755
+# PID 文件路径，必须与 redis.conf 中的 pidfile 一致
+# 注意：/run 是 /var/run 的符号链接
+# PIDFile=/run/redis/redis_6379.pid
+PIDFile={{ redis_pidfile }}
+
+# 重启策略
+# Restart=always
+Restart=on-success
+
+[Install]
+WantedBy=multi-user.target

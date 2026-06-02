@@ -1,0 +1,42 @@
+---
+- name: "Unarchive hadoop tgz to '{{ hadoop_target_dir }}'"
+  ansible.builtin.unarchive:
+    src: "{{ hadoop_local_tar }}"
+    dest: "{{ hadoop_target_dir }}"
+    list_files: yes
+    creates: "{{ hadoop_target_dir }}/hadoop-{{ hadoop_version }}/sbin/hadoop-daemon.sh"
+  register: unarchive_res
+
+- name: Debug | Show unarchive result
+  debug:
+    msg: "unarchive_res.failed: {{ unarchive_res.failed }}, unarchive_res.changed: {{ unarchive_res.changed }}"
+
+- name: Debug | Show hadoop unarchive_res
+  ansible.builtin.debug:
+    var: unarchive_res.files[0]
+
+# 找出解压后的父级文件夹名称
+# - name: Debug | Show hadoop archive dir
+#   ansible.builtin.debug:
+#     msg: "{{ hadoop_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}"
+# 使用下面这个方式更加健壮
+- name: Debug | Show hadoop archive dir
+  ansible.builtin.debug:
+    msg: "{{ hadoop_target_dir }}/{{ unarchive_res.files[0].split('/')[0]  }}"
+
+- name: "Create link from {{ hadoop_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }} to current hadoop distro {{ hadoop_distro_home }}."
+  ansible.builtin.file:
+    path: "{{ hadoop_distro_home }}"
+    src: "{{ hadoop_target_dir }}/{{ unarchive_res.files[0].split('/')[0] }}"
+    state: link
+  when: unarchive_res.changed
+
+# 修改链接文件夹的 权限/user/group，会直接修改目标文件夹的属性
+- name: "Change owner to hadoop and allow group hadoop rwx"
+  ansible.builtin.file:
+    path: "{{ hadoop_distro_home }}"
+    owner: hadoop
+    group: hadoop
+    mode: u=rwx,g=rwx,o=r
+    recurse: yes
+    state: directory

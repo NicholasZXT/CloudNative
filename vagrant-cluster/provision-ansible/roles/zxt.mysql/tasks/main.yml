@@ -1,0 +1,39 @@
+---
+# Variable configuration.
+- ansible.builtin.include_tasks: variables.yml
+
+
+# - name: Set MySQL validate password policy
+#   ansible.builtin.shell: "mysql -u root -p '{{ mysql_root_password }}' \
+#     -e 'SET PERSIST validate_password.policy={{mysql_validate_password_policy}};'"
+#   become: yes
+#   become_user: root
+
+
+# Setup/install tasks.
+# - ansible.builtin.include_tasks: setup-RedHat.yml
+#   when: ansible_os_family == 'RedHat'
+# 修改了安装任务，不使用 ansible.builtin.yum
+- ansible.builtin.include_tasks: setup-RedHat-custom.yml
+  when: ansible_os_family == 'RedHat'
+
+- ansible.builtin.include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+- ansible.builtin.include_tasks: setup-Archlinux.yml
+  when: ansible_os_family == 'Archlinux'
+
+- name: Check if MySQL packages were installed.
+  ansible.builtin.set_fact:
+    mysql_install_packages: "{{ (rh_mysql_install_packages is defined and rh_mysql_install_packages.changed)
+      or (deb_mysql_install_packages is defined and deb_mysql_install_packages.changed)
+      or (arch_mysql_install_packages is defined and arch_mysql_install_packages.changed) }}"
+
+# Configure MySQL.
+- ansible.builtin.include_tasks: configure.yml
+# - ansible.builtin.include_tasks: secure-installation.yml
+- ansible.builtin.include_tasks: secure-installation-custom.yml
+- ansible.builtin.include_tasks: databases.yml
+- ansible.builtin.include_tasks: users.yml
+# 暂时不需要多副本配置
+# - ansible.builtin.include_tasks: replication.yml

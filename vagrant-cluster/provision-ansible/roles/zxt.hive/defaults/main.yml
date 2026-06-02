@@ -1,0 +1,45 @@
+java_home: unknown
+hive_version: unknown
+hive_local_tar: unknown
+mysql_driver_jar: unknown
+mysql_conn_url: unknown
+mysql_user: unknown
+mysql_passwd: unknown
+
+hive_user: hive
+hive_group: hive
+hive_target_dir: /opt/hive
+hive_distro_home: "{{ hive_target_dir }}/current"
+hive_log_dir: "{{ hive_distro_home }}/logs"
+
+
+# 是否删除已有的target_dir
+delete_target_dir: false
+# 是否重新部署配置项
+reconfig: false
+
+
+hadoop_home: /opt/hadoop/current
+hive_hdfs_home: /user/hive/warehouse
+hive_hdfs_tmp: /tmp/hive
+
+
+# hive-site.xml
+hive_site: {}
+hive_site_defaults:
+  javax.jdo.option.ConnectionDriverName: "com.mysql.cj.jdbc.Driver"
+  javax.jdo.option.ConnectionURL: "{{ mysql_conn_url }}"
+  javax.jdo.option.ConnectionUserName: "{{ mysql_user }}"
+  javax.jdo.option.ConnectionPassword: "{{ mysql_passwd }}"
+  hive.metastore.warehouse.dir: "{{ hive_hdfs_home }}"
+  hive.exec.scratchdir: "{{ hive_hdfs_tmp }}"
+  hive.cli.print.current.db: true
+  hive.cli.print.header: true
+  # -- hive-server2配置 --
+  hive.server2.transport.mode: binary
+  hive.server2.thrift.bind.host: localhost
+  hive.server2.thrift.port: 10000
+  hive.server2.webui.host: 0.0.0.0
+  hive.server2.webui.port: 10002
+  hive.querylog.location: "{{ hive_log_dir }}"
+

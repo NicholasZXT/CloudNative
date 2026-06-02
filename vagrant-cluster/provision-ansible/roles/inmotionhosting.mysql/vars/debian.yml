@@ -1,0 +1,11 @@
+---
+mysql_config_file: /etc/mysql/my.cnf
+mysql_config_include_dir: /etc/mysql/conf.d
+
+mysql_socket_path: /var/run/mysqld/mysqld.sock
+
+mysql_packages:
+  - mariadb-server
+  - python-pymysql
+  - python3-pymysql
+  - libdbd-mysql-perl

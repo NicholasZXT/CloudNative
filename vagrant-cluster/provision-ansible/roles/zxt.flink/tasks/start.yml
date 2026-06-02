@@ -1,0 +1,7 @@
+---
+- name: Start flink server
+  shell: "{{ flink_distro_home }}/bin/zkServer.sh start"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  become: yes
+  become_user: "{{ flink_user }}"

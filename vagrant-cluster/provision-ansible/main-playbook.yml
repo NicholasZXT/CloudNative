@@ -1,0 +1,25 @@
+---
+# ***************************************************************
+- name: Configure all nodes preparing to deploy
+  tags: config_nodes
+  ansible.builtin.import_playbook: config-nodes-playbook.yml
+
+
+# ***************************************************************
+- name: Deploy-Java8
+  tags: java
+  ansible.builtin.import_playbook: deploy-java-playbook.yml
+
+
+# ***************************************************************
+- name: Deploy-MySQL&Redis
+  tags: mysql_redis
+  ansible.builtin.import_playbook: deploy-mysql-redis-playbook.yml
+
+
+# ***************************************************************
+- name: Deploy-Hadoop-Cluster
+  tags: cluster
+  ansible.builtin.import_playbook: deploy-cluster-playbook.yml
+
+

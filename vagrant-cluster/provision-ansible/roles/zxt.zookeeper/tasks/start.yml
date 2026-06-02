@@ -1,0 +1,7 @@
+---
+- name: Start zookeeper server
+  shell: "{{ zookeeper_distro_home }}/bin/zkServer.sh start"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  become: yes
+  become_user: "{{ zookeeper_user }}"

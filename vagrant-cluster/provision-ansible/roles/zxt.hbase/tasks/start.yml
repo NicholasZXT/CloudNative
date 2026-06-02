@@ -1,0 +1,9 @@
+---
+- name: Start HBase Server
+  become: yes
+  become_user: "{{ hbase_user }}"
+  run_once: yes
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+  shell: "{{ hbase_distro_home }}/bin/start-hbase.sh"
+

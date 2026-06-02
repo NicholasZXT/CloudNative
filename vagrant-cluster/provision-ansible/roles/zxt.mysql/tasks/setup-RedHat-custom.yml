@@ -1,0 +1,27 @@
+---
+# 从yum源安装
+- name: Ensure MySQL packages are installed (online).
+  ansible.builtin.shell: |
+    yum install -y \
+    mysql-community-client.x86_64 \ 
+    mysql-community-common.x86_64 \
+    mysql-community-devel.x86_64 \
+    mysql-community-libs.x86_64 \
+    mysql-community-server.x86_64
+  register: rh_mysql_install_packages
+  when: mysql_install_online | bool
+
+# 从本地安装，加快速度
+- name: Ensure MySQL packages are installed (local).
+  ansible.builtin.shell: |
+    rpm -ivh mysql-community-client-plugins-"{{ mysql_version }}"-1.el7.x86_64.rpm  &&
+    rpm -ivh mysql-community-common-"{{ mysql_version }}"-1.el7.x86_64.rpm          &&
+    rpm -ivh mysql-community-libs-"{{ mysql_version }}"-1.el7.x86_64.rpm            &&
+    rpm -ivh mysql-community-client-"{{ mysql_version }}"-1.el7.x86_64.rpm          &&
+    rpm -ivh mysql-community-icu-data-files-"{{ mysql_version }}"-1.el7.x86_64.rpm  &&
+    rpm -ivh mysql-community-server-"{{ mysql_version }}"-1.el7.x86_64.rpm          &&
+    rpm -ivh mysql-community-devel-"{{ mysql_version }}"-1.el7.x86_64.rpm           
+  args:
+      chdir: /home/vagrant/mysql8-rpms
+  register: rh_mysql_install_packages
+  when: not ( mysql_install_online | bool )

@@ -1,0 +1,40 @@
+---
+# - name: Start hive server
+#   shell: "{{ hive_distro_home }}/bin/zkServer.sh start"
+#   environment:
+#     JAVA_HOME: "{{ java_home }}"
+#   become: yes
+#   become_user: "{{ hive_user }}"
+
+- name: Check if HiveServer2 is already running
+  become: yes
+  become_user: "{{ hive_user }}"
+  command: ps -ef | grep hiveserver2 | grep -v grep
+  register: hiveserver2_check
+  ignore_errors: yes
+
+# - name: Stop HiveServer2 if already running
+#   become: yes
+#   become_user: "{{ hive_user }}"
+#   command: |
+#     ps -ef | grep hiveserver2 | grep -v grep | awk '{print $2}' | xargs kill -9
+#   when: hiveserver2_check.rc == 0
+#   ignore_errors: yes
+
+# - name: Start HiveServer2 in background
+#   become: yes
+#   become_user: "{{ hive_user }}"
+#   command: >
+#     nohup {{ hive_distro_home }}/bin/hiveserver2
+#     > {{ hiveserver2_log }} 2>&1 &
+#     echo $! > {{ hiveserver2_pid_file }}
+#   args:
+#     chdir: "{{ hive_home }}"
+#     executable: /bin/bash
+#   environment:
+#     HIVE_HOME: "{{ hive_home }}"
+#     HADOOP_HOME: "/opt/hadoop/current"
+#     PATH: "/opt/hadoop/current/bin:{{ ansible_env.PATH }}"
+#   creates: "{{ hiveserver2_pid_file }}"  # 防止重复启动
+#   async: 60
+#   poll: 0

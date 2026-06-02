@@ -1,0 +1,50 @@
+---
+- name: HDFS configuration (create users dir)
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p /users/"
+
+- name: HDFS configuration (create log dir)
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p /log/"
+
+- name: HDFS configuration (create history dir)
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p /log/history"
+
+- name: HDFS configuration (set log folder rights)
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -chmod go+w /log"
+
+- name: HDFS configuration (set history folder rights)
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  shell: "{{ hadoop_distro_home }}/bin/hdfs dfs -chmod go+w /log/history"
+
+# - name: Copy hadoop environment script
+#   copy: 
+#     dest: /etc/profile.d/hadoop.sh
+#     src: hadoop.sh
+#     mode: 0644
+
+- name: Create HDFS users home
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  command: "{{ hadoop_distro_home }}/bin/hdfs dfs -mkdir -p /users/{{ item.value.name }}"
+  loop: "{{ hadoop_user_home | combine(hadoop_user_home_defaults) | dict2items }}"
+
+- name: Set HDFS users home mode
+  when: ansible_hostname == hadoop_namenode
+  become: yes
+  become_user: hdfs
+  command: "{{ hadoop_distro_home }}/bin/hdfs dfs -chown {{ item.value.name }}:{{ item.value.name }} /users/{{ item.value.name }}"
+  loop: "{{ hadoop_user_home | combine(hadoop_user_home_defaults) | dict2items }}"

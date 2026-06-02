@@ -1,0 +1,194 @@
+---
+# ***************************************************************
+- name: Deploy-Hadoop
+  tags: hadoop
+  hosts: hadoop_nodes
+  become: yes
+  # vars:
+  #   hadoop_version: 3.2.4
+  #   java_home: /opt/jdk1.8.212
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+    
+    - name: Install Hadoop
+      ansible.builtin.include_role:
+        name: zxt.hadoop
+      vars:
+        hadoop_version: 3.2.4
+        java_home: /opt/java/current
+        hadoop_local_tar: "/vagrant/大数据集群组件/hadoop-{{ hadoop_version }}.tar.gz"
+        hadoop_cluster_name: my-cluster
+        hadoop_namenode: hadoop1
+        hadoop_secondnamenode: hadoop2
+        hadoop_resourcemanager: hadoop3
+        hadoop_historyserver: hadoop3
+        hadoop_workers:
+          - hadoop1
+          - hadoop2
+          - hadoop3
+        user_config: 
+          hive: 
+            name: hive
+        # 是否删除已有的target_dir
+        delete_target_dir: true
+        # 是否重新部署配置项
+        reconfig: true
+
+
+# ***************************************************************
+- name: Deploy-Zookeeper
+  tags: zookeeper
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+    
+    - name: Install Zookeeper
+      ansible.builtin.include_role:
+        name: zxt.zookeeper
+      vars:
+        java_home: /opt/java/current
+        zookeeper_version: 3.5.9
+        zookeeper_local_tar: "/vagrant/大数据集群组件/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz"
+        zookeeper_user: zookeeper
+        zookeeper_group: zookeeper
+        zookeeper_workders: 
+          hadoop1: 1
+          hadoop2: 2
+          hadoop3: 3
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+
+
+# ***************************************************************
+- name: Deploy-Kafka
+  tags: kafka
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+    
+    - name: Install Kafka
+      ansible.builtin.include_role:
+        name: zxt.kafka
+      vars:
+        java_home: /opt/java/current
+        kafka_version: 3.1.2
+        kafka_local_tar: "/vagrant/大数据集群组件/kafka_2.12-{{ kafka_version }}.tgz"
+        kafka_user: kafka
+        kafka_group: kafka
+        zookeeper_connect: "hadoop1:2181,hadoop2:2181,hadoop3:2181"
+        kafka_workers_id:
+          hadoop1: 1
+          hadoop2: 2
+          hadoop3: 3
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+
+
+# ***************************************************************
+- name: Deploy-Hive
+  tags: hive
+  hosts: hive_node
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    - name: Install Hive
+      ansible.builtin.include_role:
+        name: zxt.hive
+      vars:
+        java_home: /opt/java/current
+        hive_version: 3.1.3
+        hive_local_tar: "/vagrant/大数据集群组件/apache-hive-{{ hive_version }}-bin.tar.gz"
+        hive_user: hive
+        hive_group: hive
+        hadoop_home: /opt/hadoop/current
+        mysql_driver_jar: "/vagrant/大数据集群组件/mysql-connector-j-8.0.31.jar"
+        mysql_conn_url: "jdbc:mysql://hadoop1:3306/hive_metastore?createDatabaseIfNotExist=true&amp;useSSL=false&amp;allowPublicKeyRetrieval=true"
+        mysql_user: hive
+        mysql_passwd: hive3124
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+
+# ***************************************************************
+- name: Deploy-Spark
+  tags: spark
+  hosts: spark_node
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    - name: Install Spark
+      ansible.builtin.include_role:
+        name: zxt.spark
+      vars:
+        java_home: /opt/jdk1.8.212
+        spark_version: 3.3.1
+        spark_local_tar: "/vagrant/大数据集群组件/spark-{{ spark_version }}-bin-hadoop3.tgz"
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+
+
+# ***************************************************************
+- name: Deploy-Flink
+  tags: flink
+  hosts: flink_node
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    - name: Install Flink
+      ansible.builtin.include_role:
+        name: zxt.flink
+      vars:
+        java_home: /opt/jdk1.8.212
+        flink_version: 1.17.2
+        flink_local_tar: "/vagrant/大数据集群组件/flink-{{ flink_version }}-bin-scala_2.12.tgz"
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+
+# ***************************************************************
+- name: Deploy-Hbase
+  tags: hbase
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    - name: Install HBase
+      ansible.builtin.include_role:
+        name: zxt.hbase
+      vars:
+        java_home: /opt/jdk1.8.212
+        hbase_version: 2.4.12
+        hbase_local_tar: "/vagrant/大数据集群组件/hbase-{{ hbase_version }}-bin.tar.gz"
+        # 是否删除已有的target_dir
+        delete_target_dir: false
+        # 是否重新部署配置项
+        reconfig: false
+

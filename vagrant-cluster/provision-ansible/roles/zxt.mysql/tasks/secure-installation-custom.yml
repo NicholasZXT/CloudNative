@@ -1,0 +1,74 @@
+---
+- name: Print the Python interpreter Ansible is using
+  debug:
+    var: ansible_python_interpreter
+
+- name: Retrieve temporary root password (RedHat)
+  shell: "cat /var/log/mysqld.log \
+    | grep 'A temporary password is generated for root@localhost:' \
+    | sed 's/.*root@localhost: //'"
+  become: true
+  register: temp_root_password
+
+- name: DEBUG - MySQL temp password (RedHat)
+  debug:
+    msg: "MySQL root temp password: {{ temp_root_password.stdout }}"
+
+# 不能直接用上面的临时密码更新，因为该临时密码登录之后处于受限环境，只能进行改密码的操作
+# - name: Update root MySQL password
+#   community.mysql.mysql_user:
+#     name: "{{ mysql_root_username }}"
+#     # login_unix_socket: "{{ mysql_socket }}"
+#     password: "{{ mysql_root_password }}"
+#     login_user: "{{ mysql_root_username }}"
+#     login_password: "{{ temp_root_password.stdout }}"
+#     update_password: always
+
+# 需要借助一个中间临时密码来进行 root 用户密码更新的操作
+- name: Set MySQL root user temp password to 'L-y6ohL6*x-8R' (RedHat)
+  shell: "mysql -u root -p'{{ temp_root_password.stdout }}' \
+    --connect-expired-password -e 'alter user root@localhost identified \
+    by \"L-y6ohL6*x-8R\";'"
+
+# - name: Set temporary password policy level (RedHat)
+#   shell: "mysql -u root -p'L-y6ohL6*x-8R' -e 'SET GLOBAL {{ item }};'"
+#   loop: "{{ mysql_password_policy_settings[mysql_version_parts['major']|string]|flatten(levels=1) }}"
+#   when: |-
+#     mysql_password_policy_settings is defined and
+#     mysql_allow_simple_passwords
+
+- name: Set MySQL root user password to mysql_root_password (RedHat)
+  shell: "mysql -u root -p'L-y6ohL6*x-8R' \
+    -e 'alter user root@localhost identified by \"{{ mysql_root_password }}\";'"
+
+# Has to be after the root password assignment, for idempotency.
+- name: Copy .my.cnf file with root password credentials.
+  ansible.builtin.template:
+    src: "root-my.cnf.j2"
+    dest: "{{ mysql_root_home }}/.my.cnf"
+    owner: root
+    group: root
+    mode: 0600
+  no_log: "{{ mysql_hide_passwords }}"
+  # when: mysql_install_packages | bool or mysql_root_password_update
+
+# 上面设置好 /root/.my.cnf 之后，下面就不用输入密码了
+- name: Set MySQL validate password policy
+  ansible.builtin.shell: "mysql -u root \
+    -e 'SET PERSIST validate_password.policy={{mysql_validate_password_policy}};'"
+  become: yes
+  become_user: root
+
+- name: Restrict root user to localhost
+  community.mysql.mysql_user:
+    name: "{{ mysql_root_username }}"
+    host: localhost
+    # login_unix_socket: "{{ mysql_socket }}"
+
+- name: Remove all anonymous MySQL users.
+  community.mysql.mysql_user:
+    name: ""
+    host_all: true
+    # login_unix_socket: "{{ mysql_socket_path }}"
+    state: absent
+

@@ -1,0 +1,192 @@
+---
+# ***************************************************************
+- name: Check package manager
+  tags: pkg_mgr
+  hosts: hadoop_nodes
+  become: yes
+  tasks:
+    # ------ 测试CentOS-7的包管理工具 ---------
+    # 以下包管理工具，在 CentOS-7 + Python3 的组合下，都无法使用，因为 ansible_facts 里获取的 pkg_mgr 是 unknow
+    # 强行设置 pkg_mgr 为 yum 也无效
+    # - name: Set pkg_mgr to yum
+    #   set_fact:
+    #     pkg_mgr: "yum"
+    - name: Show ansible_facts
+      ansible.builtin.debug:
+        var: ansible_facts
+    # - name: Test yum install wget
+    #   ansible.builtin.yum:
+    #     name: wget
+    #     state: present
+    # - name: Test package install wget
+    #   ansible.builtin.package:
+    #     name: wget
+    #     state: present
+    # - name: Test dnf install wget
+    #   ansible.builtin.dnf:
+    #     name: wget
+    #     state: present
+    #     use_backend: "dnf"
+    #   vars:
+    #     ansible_python_interpreter: /usr/bin/python
+
+# ***************************************************************
+- name: Deploy-Redis
+  tags: redis
+  hosts: redis_node
+  become: yes
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    - name: Install Redis
+      ansible.builtin.include_role:
+        # name: geerlingguy.redis
+        name: zxt.redis
+      vars:
+        redis_version: 7.4.5
+        redis_local_tar: "/vagrant/大数据集群组件/redis-{{ redis_version }}.tar.gz"
+        redis_extract_dir: "/home/vagrant/"
+        redis_bind_interface: 0.0.0.0
+        redis_databases: 3
+        redis_save: []
+        redis_maxmemory: 512mb
+        redis_requirepass: "redis-2025"
+
+
+# ***************************************************************
+- name: Deploy-MySQL
+  tags: mysql
+  hosts: mysql_node
+  become: yes
+  vars:
+    # 本地安装的mysql rpm 包版本
+    mysql_version: "8.0.32"
+    mysql_install_online: false
+  tasks:
+    - name: Show hostname with IP
+      ansible.builtin.debug:
+        msg: Hostname is [{{ ansible_hostname}}] with IP [{{ ansible_default_ipv4 }}].
+
+    # ------------------------------------------------------
+    - name: Remove old mariadb
+      ansible.builtin.shell: |
+        yum remove -y mariadb*  &&
+        rm -rf /etc/my.cnf*     &&
+        rm -rf /var/lib/mysql*  &&
+        rm -rf /var/log/mysql*  &&
+        rm -rf /var/run/mysql*
+      become: yes
+
+    # mysql上述文件夹删除后，也不能重新启动，必须要卸载并重新安装，否则无法启动
+    - name: Remove existed mysql
+      ansible.builtin.shell: yum list installed | grep mysql-community | awk '{print $1}' | xargs -r sudo yum remove -y
+      become: yes
+
+    # community.mysql.user 模块需要如下两个python包，而且必须是在root用户下
+    - name: Install necessary python packages for community.mysql.mysql_user
+      ansible.builtin.shell: /usr/local/bin/pip3 install -i https://pypi.tuna.tsinghua.edu.cn/simple pymysql cryptography
+      become: yes
+      become_user: root
+
+    - name: Copy MySQL yum source
+      ansible.builtin.copy:
+        # 下面是 MySQL官方提供的 yum 源文件，可以使用 wget http://dev.mysql.com/get/mysql84-community-release-el7-1.noarch.rpm 下载
+        src: /vagrant/大数据集群组件/mysql84-community-release-el7-1.noarch.rpm
+        dest: /home/vagrant/mysql84-community-release-el7-1.noarch.rpm
+      when: mysql_install_online | bool
+    
+    - name: Add MySQL yum Repo
+      ansible.builtin.shell: |
+        rpm -ivh --replacepkgs mysql84-community-release-el7-1.noarch.rpm  &&
+        yum clean all  &&
+        yum makecache
+      args:
+          chdir: /home/vagrant
+      become: yes
+      when: mysql_install_online | bool
+    # 可以使用 yum install -y mysql-community-client.x86_64 mysql-community-common.x86_64 mysql-community-devel.x86_64 mysql-community-libs.x86_64 mysql-community-server.x86_64
+
+    # 本地安装MySQL时需要perl和其他依赖
+    - name: Install perl and other lib for mysql
+      ansible.builtin.shell: |
+        yum install perl -y  &&
+        yum install libaio -y
+      become: yes
+      when: not ( mysql_install_online | bool )
+
+    - name: Ensure mysql rpms directory exists
+      file:
+        path: /home/vagrant/mysql8-rpms
+        state: directory
+      when: not ( mysql_install_online | bool )
+
+    - name: Extract MySQL rpm-bundle tarball
+      ansible.builtin.unarchive:
+        src: "/vagrant/大数据集群组件/mysql-{{ mysql_version }}-1.el7.x86_64.rpm-bundle.tar"
+        dest: /home/vagrant/mysql8-rpms
+        # 下面确保不会重复解压生成文件
+        creates: "/home/vagrant/mysql8-rpms/mysql-community-server-{{ mysql_version }}-1.el7.x86_64.rpm"
+        mode: "755"
+      when: not ( mysql_install_online | bool )
+
+    # ---- 下面的role使用了 ansible.builtin.yum ，这个module在 Python + CentOS7 的配置上有问题，无法执行
+    # ---- 即使修改了此 role 中的 setupRedHat.yml 文件里的安装方式也不行，因为此role只支持 MySQL5.x 版本，MySQL 8.x 版本下，secure-installation.yml 里的大部分task都没法执行
+    - name: Install MySQL
+      ansible.builtin.include_role:
+        # name: geerlingguy.mysql
+        name: zxt.mysql
+      vars:
+        mysql_daemon: mysqld
+        mysql_syslog_tag: mysql
+        # mysql_log_error: /var/log/mysql-err.log
+        mysql_log_error: /var/log/mysqld.log
+        mysql_pid_file: /var/run/mysqld/mysqld.pid
+        mysql_socket: /var/lib/mysql/mysql.sock
+        mysql_datadir: /var/lib/mysql
+        mysql_bind_address: '0.0.0.0'
+        mysql_port: "3306"
+        # mysql_user_home: /home/vagrant
+        # mysql_user_name: vagrant
+        # mysql_user_password: vagrant1234
+        mysql_root_username: root
+        mysql_root_password: iData@2022
+        mysql_root_password_update: true
+        mysql_enabled_on_startup: true
+        mysql_databases: 
+          - name: hive_metastore
+            collation: utf8_general_ci
+            encoding: utf8
+        mysql_users: 
+          - name: admin
+            host: "%"
+            password: admin-1234
+            priv: '*.*:ALL,GRANT'
+            state: present
+          - name: hive
+            host: "%"
+            password: hive3124
+            priv: 'hive_metastore.*:ALL,GRANT'
+            state: present
+        mysql_disable_log_bin: false
+        mysql_validate_password_policy: LOW
+
+    # ----------------------------------
+    # - name: Install MySQL
+    #   ansible.builtin.include_role:
+    #     name: robertdebock.mysql
+    #   vars:
+    #     mysql_port: "3306"
+    #     mysql_bind_address: '0.0.0.0'
+    #     mysql_root_password: "root-1234"
+    #     mysql_users: 
+    #       - name: admin
+    #         host: "%"
+    #         password: admin-1234
+    #         priv: '*.*:ALL,GRANT'
+    #         state: present
+    #     mysql_databases: 
+    #       - name: hive
+    #         collation: utf8_general_ci
+    #         encoding: utf8

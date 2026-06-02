@@ -1,0 +1,12 @@
+---
+- name: Stop kafka server
+  shell: "{{ kafka_distro_home }}/bin/kafka-server-stop.sh -daemon {{ kafka_distro_home }}/config/server.properties"
+  args:
+    chdir: "{{ kafka_distro_home }}"
+  environment:
+    JAVA_HOME: "{{ java_home }}"
+    # 设置kafka服务日志路径 
+    LOG_DIR: "{{ kafka_log_dir }}"
+  become: yes
+  become_user: "{{ kafka_user }}"
+  ignore_errors: true

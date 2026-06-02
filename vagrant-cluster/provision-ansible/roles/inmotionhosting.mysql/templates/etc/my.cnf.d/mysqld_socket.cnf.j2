@@ -1,0 +1,8 @@
+# {{ template_destpath }}
+# {{ ansible_managed }}
+
+[mysqld]
+socket={{ mysql_socket_path }}
+
+[client]
+socket={{ mysql_socket_path }}

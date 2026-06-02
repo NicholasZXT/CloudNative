@@ -1,0 +1,126 @@
+---
+# ***************************************************************
+- name: Deploy-Java8
+  hosts: hadoop_nodes
+  vars:
+    debug: True
+    delete_olds: True
+    jdk_target_dir: "/opt/java"
+    jdk_install_dir: "{{ jdk_target_dir }}/jdk1.8.212"
+    jdk_distro_home: "{{ jdk_target_dir }}/current"
+    jdk_tarball: "/vagrant/大数据集群组件/jdk-8u212-linux-x64.tar.gz"
+  tasks:
+    - name: "Remove old target dir [{{ jdk_target_dir }}]"
+      become: yes
+      file:
+        path: "{{ jdk_target_dir }}"
+        state: absent
+      when: delete_olds
+    - name: "Ensure jdk_target_dir {{ jdk_target_dir }} exists"
+      become: yes
+      ansible.builtin.file:
+        path: "{{ jdk_target_dir }}"
+        state: directory
+
+    - name: Extract JDK tarball
+      become: yes
+      ansible.builtin.unarchive:
+        src: "{{ jdk_tarball }}"
+        dest: "{{ jdk_target_dir }}"
+        # remote_src: yes  # 表示src指向的是远程文件而不是本地文件
+        creates: "{{ jdk_install_dir }}" # 可选：指定创建的目标目录，避免重复解压
+        mode: "755"
+        # 列出文件，主要是为了获取解压后的文件夹名称
+        list_files: yes
+      register: unarchive_res
+      # ignore_errors: True
+    
+    - name: Debug unarchive result
+      debug:
+        msg: "unarchive_res.failed: {{ unarchive_res.failed }}, unarchive_res.changed: {{ unarchive_res.changed }}"
+      when: debug
+
+    - name: Debug unarchive result
+      debug:
+        # var: unarchive_res
+        # 下面拿到的就是解压文件夹名称，不过末尾有一个 / ，需要去除
+        var: unarchive_res.files[0]
+      when: debug
+
+    # - name: Rename extracted JDK directory
+    #   # 这里使用过滤器去掉了文件夹最右边的 /
+    #   ansible.builtin.command: mv "/opt/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}" "/opt/{{ jdk_install_dir }}"
+    #   args:
+    #     creates: "/opt/{{ jdk_install_dir }}"  # 避免重复操作
+    #   become: yes
+    #   register: rename_res
+    #   # 上面解压成功了才进行重命名操作
+    #   when: unarchive_res.files is defined
+
+    - name: "Create link from {{ jdk_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }} to current java distro {{ jdk_distro_home }}."
+      become: yes
+      ansible.builtin.file:
+        path: "{{ jdk_distro_home }}"
+        src: "{{ jdk_target_dir }}/{{ unarchive_res.files[0] | regex_replace('/+$', '') }}"
+        state: link
+      when: not unarchive_res.failed or unarchive_res.changed
+
+    # - name: Update bash_profile with JAVA_HOME and PATH
+    #   ansible.builtin.lineinfile:
+    #     path: /home/hadoop/.bash_profile
+    #     line: "{{ item }}"
+    #     state: present
+    #   become: yes
+    #   become_user: hadoop
+    #   loop:
+    #     - "export JAVA_HOME=/opt/{{ jdk_install_dir }}"
+    #     - 'export PATH=$JAVA_HOME/bin:$PATH'
+    #   # 上面解压成功了才进行更新环境变量的操作
+    #   when: unarchive_res.files is defined
+    #   notify:
+    #     - Reload bash_profile
+
+    # 保证所有用户都能访问到jdk的路径
+    - name: Ensure /etc/profile.d/java.sh existed
+      become: yes
+      file:
+        path: /etc/profile.d/java.sh
+        state: touch
+      when: unarchive_res.files is defined or (unarchive_res is skipped)
+
+    - name: Add Java environment variables to /etc/profile.d/java.sh
+      become: yes
+      blockinfile:
+        path: /etc/profile.d/java.sh
+        block: |
+          export JAVA_HOME={{ jdk_distro_home }}
+          export PATH=$JAVA_HOME/bin:$PATH
+      when: unarchive_res.files is defined or (unarchive_res is skipped)
+      notify:
+        - Reload shell configuration
+
+    # 向sudo路径中也添加jdk路径，保证sudo命令也能访问到
+    - name: Create sudoers file for Java environment
+      become: yes
+      copy:
+        content: |
+          # Add Java bin path to sudo secure_path
+          Defaults secure_path = {{ secure_path_base }}:{{ jdk_distro_home }}/bin
+        dest: /etc/sudoers.d/java
+        owner: root
+        group: root
+        mode: '0440'  # 必须是 0440，否则 sudo 会忽略
+      vars:
+        secure_path_base: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+  handlers:
+    # - name: Reload bash_profile
+    #   ansible.builtin.shell: source /home/hadoop/.bash_profile
+    #   args:
+    #     executable: /bin/bash
+    #   become: yes
+    #   become_user: hadoop
+    - name: Reload shell configuration
+      shell: source /etc/profile.d/java.sh
+      args:
+        executable: /bin/bash
