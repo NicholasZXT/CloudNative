@@ -132,16 +132,29 @@ else
 fi
 
 # -------------------------------------------
-# 4. 将用户加入 docker 组
+# 4. 将用户加入 docker 组并配置免密 sudo
 # -------------------------------------------
 echo ""
 echo "👥 [4/4] 配置用户权限..."
 if groups "${REAL_USER}" | grep -q docker; then
-    echo "⏭️  用户 ${REAL_USER} 已在 docker 组中，跳过"
+    echo "⏭️  用户 ${REAL_USER} 已在 docker 组中,跳过"
 else
     usermod -aG docker "${REAL_USER}"
     echo "✅ 已将 ${REAL_USER} 加入 docker 组"
     echo "⚠️  注意: 需要重新登录 WSL2 或执行 'newgrp docker' 使组权限生效"
+fi
+
+# 配置免密 sudo
+echo ""
+echo "🔑 配置免密 sudo..."
+SUDOERS_FILE="/etc/sudoers.d/${REAL_USER}"
+if [[ -f "${SUDOERS_FILE}" ]]; then
+    echo "⏭️  用户 ${REAL_USER} 的免密 sudo 配置已存在,跳过"
+else
+    echo "${REAL_USER} ALL=(ALL) NOPASSWD: ALL" > "${SUDOERS_FILE}"
+    chmod 0440 "${SUDOERS_FILE}"
+    echo "✅ 已为用户 ${REAL_USER} 配置免密 sudo"
+    echo "⚠️  注意: 下次执行 sudo 命令时将不再需要输入密码"
 fi
 
 # -------------------------------------------

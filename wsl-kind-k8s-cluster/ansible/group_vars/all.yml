@@ -72,7 +72,7 @@ k8s_versions:
 #
 k8s_cluster_local:
   # 是否使用本地文件安装（true=本地，false=网络下载）
-  from_local: true
+  from_local: false
   # 本地kubectl二进制文件路径（绝对路径）
   kubectl: "/mnt/d/Downloads/kubectl"
   # 本地helm压缩包路径（.tar.gz格式，绝对路径）

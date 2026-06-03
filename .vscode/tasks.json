@@ -31,7 +31,7 @@
                 "clear": false,
                 "close": true
             },
-            "command": "wsl -d Ubuntu-24.04 -- rsync --recursive --delete /mnt/c/Users/Driv/Documents/Python-Projects/CloudNative/wsl-kind-k8s-cluster/ /home/zxt/k8s-kind"
+            "command": "wsl -d Ubuntu-24.04 -- rsync --recursive --delete /mnt/c/Users/Drivi/Python-Projects/CloudNative/wsl-kind-k8s-cluster/ /home/zxt/k8s-kind"
         }
     ]
 }
