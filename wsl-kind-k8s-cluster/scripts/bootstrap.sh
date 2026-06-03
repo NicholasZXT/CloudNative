@@ -26,7 +26,14 @@ echo "👤 目标用户: ${REAL_USER}"
 echo ""
 echo "📦 [1/4] 更新包索引并安装基础依赖..."
 export DEBIAN_FRONTEND=noninteractive
+
+# 1.1 更新包索引
+echo "  📋 更新包索引..."
 apt-get update -qq
+echo "  ✅ 包索引更新完成"
+
+# 1.2 安装核心基础工具
+echo "  🔧 安装核心基础工具 (ca-certificates, curl, gnupg, lsb-release, python3, python3-pip, python3-venv, git, unzip)..."
 apt-get install -y -qq \
     ca-certificates \
     curl \
@@ -37,6 +44,18 @@ apt-get install -y -qq \
     python3-venv \
     git \
     unzip > /dev/null
+echo "  ✅ 核心基础工具安装完成"
+
+# 1.3 安装 rsync（文件同步工具）
+echo "  🔄 安装 rsync..."
+apt-get install -y -qq rsync > /dev/null
+RSYNC_VER=$(rsync --version 2>/dev/null | head -1 || echo "未知")
+echo "  ✅ rsync 安装完成: ${RSYNC_VER}"
+
+# 1.4 安装网络工具（net-tools 提供 ifconfig 等命令）
+echo "  🌐 安装网络工具 (net-tools)..."
+apt-get install -y -qq net-tools > /dev/null
+echo "  ✅ 网络工具安装完成 (ifconfig, netstat, route 等)"
 
 echo "✅ 基础依赖就绪"
 
