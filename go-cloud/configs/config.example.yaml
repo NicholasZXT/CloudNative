@@ -1,0 +1,11 @@
+# go-cloud 配置文件示例
+# 复制此文件为 config.yaml 并修改配置
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+database:
+  dsn: "user:password@tcp(localhost:3306)/go_cloud?charset=utf8mb4&parseTime=True"
+  max_open_conns: 25
+  max_idle_conns: 10
